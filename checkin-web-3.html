@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Check-in Ca Làm Việc</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#F1EFE8;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:1.5rem 1rem;}
+  .app{max-width:480px;margin:0 auto;}
+  .header{background:#fff;border:1px solid #e0ded8;border-radius:14px;padding:1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:14px;}
+  .logo{width:44px;height:44px;border-radius:10px;background:#1D9E75;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;}
+  .header-text{flex:1;min-width:0;}
+  .header-text h1{font-size:17px;font-weight:600;color:#1a1a1a;}
+  .header-text .sub{font-size:12px;color:#888;margin-top:2px;}
+  .live-clock{text-align:right;flex-shrink:0;}
+  .clock-time{font-size:22px;font-weight:600;color:#1D9E75;line-height:1;font-variant-numeric:tabular-nums;}
+  .clock-date{font-size:11px;color:#999;margin-top:3px;}
+  .clock-day{font-size:11px;color:#666;margin-top:1px;}
+  .card{background:#fff;border:1px solid #e0ded8;border-radius:14px;padding:1.25rem;margin-bottom:1rem;}
+  .card-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+  label{font-size:13px;color:#555;display:block;margin-bottom:5px;}
+  select,input[type=text]{width:100%;padding:9px 12px;font-size:14px;border:1px solid #ddd;border-radius:8px;background:#f9f9f7;color:#1a1a1a;outline:none;}
+  select:focus,input:focus{border-color:#1D9E75;}
+  .add-btn{font-size:13px;color:#1D9E75;cursor:pointer;background:none;border:none;margin-top:8px;display:flex;align-items:center;gap:4px;padding:0;}
+  .loc-box{background:#f9f9f7;border-radius:8px;padding:10px 14px;font-size:13px;color:#666;display:flex;align-items:center;gap:8px;cursor:pointer;border:1px solid #ddd;}
+  .loc-box:hover{border-color:#1D9E75;}
+  .loc-box.active{border-color:#1D9E75;color:#0F6E56;background:#E1F5EE;}
+  .loc-box.err{border-color:#E24B4A;color:#A32D2D;background:#FCEBEB;}
+  .badge{font-size:11px;padding:2px 8px;border-radius:20px;background:#E1F5EE;color:#0F6E56;margin-left:auto;flex-shrink:0;}
+  .info-box{background:#f9f9f7;border-radius:8px;padding:10px 14px;margin-top:10px;}
+  .info-label{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:0.05em;}
+  .info-val{font-size:15px;font-weight:600;color:#1a1a1a;margin-top:2px;}
+  .shift-select{border:none;background:transparent;padding:0;font-size:15px;font-weight:600;color:#1a1a1a;width:100%;margin-top:4px;outline:none;}
+  .upload-zone{border:1.5px dashed #ccc;border-radius:8px;padding:2rem 1rem;text-align:center;cursor:pointer;}
+  .upload-zone:hover{border-color:#1D9E75;}
+  .upload-zone.has-img{border-style:solid;border-color:#1D9E75;padding:0;overflow:hidden;}
+  .upload-zone img{width:100%;height:200px;object-fit:cover;border-radius:7px;display:block;}
+  .upload-ico{font-size:36px;color:#ccc;}
+  .upload-text{font-size:14px;color:#888;margin-top:8px;}
+  .upload-hint{font-size:12px;color:#bbb;margin-top:4px;}
+  .submit-btn{width:100%;padding:13px;background:#1D9E75;color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:0.25rem;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .submit-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .submit-btn:hover:not(:disabled){background:#0F6E56;}
+  .note{background:#f9f9f7;border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#888;display:flex;align-items:flex-start;gap:8px;}
+  .toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;}
+  .toast{background:#1D9E75;color:white;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;}
+  .toast.show{opacity:1;}
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:100;}
+  .modal-bg.open{display:flex;}
+  .modal{background:#fff;border-radius:14px;padding:1.5rem;width:300px;}
+  .modal h3{font-size:16px;font-weight:600;margin-bottom:1rem;}
+  .modal-row{display:flex;gap:8px;margin-top:1rem;}
+  .modal-row button{flex:1;padding:9px;border-radius:8px;border:1px solid #ddd;font-size:14px;cursor:pointer;background:#f9f9f7;color:#1a1a1a;}
+  .modal-row button.ok{background:#1D9E75;color:white;border-color:#1D9E75;}
+  .success-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:300;}
+  .success-overlay.open{display:flex;}
+  .success-box{background:#fff;border-radius:16px;padding:2rem;width:300px;text-align:center;}
+  .success-icon{font-size:48px;margin-bottom:1rem;}
+  .success-box h2{font-size:18px;font-weight:600;color:#1D9E75;margin-bottom:0.5rem;}
+  .success-box p{font-size:13px;color:#888;}
+  .success-box button{margin-top:1.25rem;padding:10px 24px;background:#1D9E75;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spinning{animation:spin 1s linear infinite;display:inline-block;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER với đồng hồ thực tế -->
+  <div class="header">
+    <div class="logo">🕐</div>
+    <div class="header-text">
+      <h1>Check-in ca làm việc</h1>
+      <div class="sub">Xác nhận có mặt tại nơi làm việc</div>
+    </div>
+    <div class="live-clock">
+      <div class="clock-time" id="clk-time">--:--:--</div>
+      <div class="clock-date" id="clk-date">--/--/----</div>
+      <div class="clock-day" id="clk-day">---</div>
+    </div>
+  </div>
+
+  <!-- NHÂN VIÊN -->
+  <div class="card">
+    <div class="card-title">👤 Nhân viên</div>
+    <label>Họ và tên</label>
+    <select id="emp-select">
+      <option value="">⏳ Đang tải danh sách...</option>
+    </select>
+    <button class="add-btn" onclick="openModal()">➕ Thêm nhân viên mới</button>
+  </div>
+
+  <!-- VỊ TRÍ & CA -->
+  <div class="card">
+    <div class="card-title">📍 Vị trí &amp; ca làm</div>
+    <div class="loc-box" id="loc-box" onclick="getLocation()">
+      <span>🎯</span>
+      <span id="loc-text">Nhấn để lấy vị trí GPS</span>
+      <span class="badge">R ≤ 50m</span>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Ca làm việc</div>
+      <select class="shift-select" id="shift-select">
+        <option value="Sáng (6:00–14:00)">Sáng (6:00–14:00)</option>
+        <option value="Chiều (14:00–22:00)">Chiều (14:00–22:00)</option>
+        <option value="Tối (22:00–6:00)">Tối (22:00–6:00)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ẢNH -->
+  <div class="card">
+    <div class="card-title">📷 Ảnh xác nhận</div>
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-ico">📸</div>
+      <div class="upload-text">Chụp hoặc chọn ảnh</div>
+      <div class="upload-hint">JPG, PNG — tối đa 10MB</div>
+    </div>
+    <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handleFile(event)">
+  </div>
+
+  <div class="note">
+    ℹ️ <span>Tên, vị trí GPS, thời gian thực tế và ảnh sẽ được ghi tự động vào Google Sheet.</span>
+  </div>
+
+  <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
+    📤 Gửi check-in
+  </button>
+</div>
+
+<!-- TOAST -->
+<div class="toast-wrap"><div class="toast" id="toast"></div></div>
+
+<!-- MODAL THÊM NHÂN VIÊN -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3>Thêm nhân viên mới</h3>
+    <label>Họ và tên đầy đủ</label>
+    <input type="text" id="new-name" placeholder="Vd: Nguyễn Văn Nam">
+    <div class="modal-row">
+      <button onclick="closeModal()">Huỷ</button>
+      <button class="ok" onclick="addEmp()">Thêm</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS -->
+<div class="success-overlay" id="success-overlay">
+  <div class="success-box">
+    <div class="success-icon">✅</div>
+    <h2>Check-in thành công!</h2>
+    <p id="success-detail"></p>
+    <button onclick="resetForm()">Đóng</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CẤU HÌNH — Dán URL Google Apps Script của bạn vào đây
+// ============================================================
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyWxe6-W51IUHxS6tjVANH4d6zEdbqP0IADbtkg6TrC5g711qoR6N6_1NZBkhBsNA6KHQ/exec";
+// ============================================================
+
+const DAYS = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+
+// Tải danh sách nhân viên từ Google Sheet
+var empDeptMap = {}; // luu bo phan cua tung nhan vien
+
+async function loadEmployees() {
+  const sel = document.getElementById('emp-select');
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, { method: 'GET', mode: 'cors' });
+    const data = await res.json();
+    sel.innerHTML = '<option value="">-- Chọn nhân viên --</option>';
+    if (data.success && data.employees.length > 0) {
+      data.employees.forEach(emp => {
+        empDeptMap[emp.name] = emp.dept;
+        const o = document.createElement('option');
+        o.value = emp.name;
+        const deptLabel = emp.dept === 'tai xe' ? ' 🚗' : ' 🏢';
+        o.textContent = emp.name + deptLabel;
+        sel.appendChild(o);
+      });
+    } else {
+      sel.innerHTML = '<option value="">⚠ Không tải được danh sách</option>';
+    }
+  } catch(err) {
+    sel.innerHTML = '<option value="">⚠ Lỗi kết nối Sheet</option>';
+  }
+}
+let locData = null, imgFile = null, submitTime = null;
+
+// Đồng hồ thời gian thực
+function tick() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('clk-time').textContent = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+  document.getElementById('clk-date').textContent = now.toLocaleDateString('vi-VN');
+  document.getElementById('clk-day').textContent = DAYS[now.getDay()];
+}
+tick(); setInterval(tick, 1000);
+loadEmployees();
+
+// Lấy GPS
+function getLocation() {
+  const box = document.getElementById('loc-box');
+  const txt = document.getElementById('loc-text');
+  txt.textContent = 'Đang lấy vị trí...';
+  box.className = 'loc-box';
+  if (!navigator.geolocation) {
+    txt.textContent = 'Trình duyệt không hỗ trợ GPS';
+    box.className = 'loc-box err'; return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      locData = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        acc: Math.round(pos.coords.accuracy)
+      };
+      txt.textContent = locData.lat.toFixed(5)+', '+locData.lng.toFixed(5)+' (±'+locData.acc+'m)';
+      box.className = 'loc-box active';
+    },
+    () => { txt.textContent='Không lấy được vị trí. Thử lại?'; box.className='loc-box err'; },
+    { enableHighAccuracy:true, timeout:10000 }
+  );
+}
+
+// Chọn ảnh
+function handleFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  imgFile = file;
+  const r = new FileReader();
+  r.onload = ev => {
+    const z = document.getElementById('upload-zone');
+    z.className = 'upload-zone has-img';
+    z.innerHTML = '<img src="'+ev.target.result+'" alt="Ảnh check-in">';
+    z.onclick = () => document.getElementById('file-input').click();
+  };
+  r.readAsDataURL(file);
+}
+
+// Toast
+function toast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.background = color||'#1D9E75';
+  t.className = 'toast show';
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+async function handleSubmit() {
+  const empRaw = document.getElementById('emp-select').value;
+  const emp = empRaw.replace(/ 🚗| 🏢/g, '').trim();
+  const dept = empDeptMap[emp] || '';
+  const shift = document.getElementById('shift-select').value;
+  if (!emp) return toast('⚠ Vui lòng chọn nhân viên','#BA7517');
+  if (!locData) return toast('⚠ Vui lòng lấy vị trí GPS trước','#BA7517');
+  if (!imgFile) return toast('⚠ Vui lòng chọn ảnh check-in','#BA7517');
+
+  submitTime = new Date();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinning">⏳</span> Đang gửi...';
+
+  // Nen anh xuong 800px va quality 70% truoc khi gui
+  const imgBase64 = await new Promise(res => {
+    const img = new Image();
+    const url = URL.createObjectURL(imgFile);
+    img.onload = () => {
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      res(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
+    };
+    img.src = url;
+  });
+
+  const payload = {
+    name: emp,
+    dept: dept,
+    shift: shift,
+    datetime: submitTime.toLocaleString('vi-VN'),
+    date: submitTime.toLocaleDateString('vi-VN'),
+    time: submitTime.toLocaleTimeString('vi-VN'),
+    lat: locData.lat,
+    lng: locData.lng,
+    accuracy: locData.acc,
+    mapsLink: 'https://maps.google.com/?q='+locData.lat+','+locData.lng,
+    imageBase64: imgBase64,
+    imageName: imgFile.name || ('checkin_' + Date.now() + '.jpg')
+  };
+
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    document.getElementById('success-detail').textContent =
+      emp + ' — ' + submitTime.toLocaleString('vi-VN');
+    document.getElementById('success-overlay').className = 'success-overlay open';
+  } catch(err) {
+    toast('❌ Lỗi kết nối. Kiểm tra lại URL Script.','#E24B4A');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '📤 Gửi check-in';
+}
+
+function resetForm() {
+  document.getElementById('success-overlay').className = 'success-overlay';
+  document.getElementById('emp-select').value = '';
+  document.getElementById('upload-zone').className = 'upload-zone';
+  document.getElementById('upload-zone').innerHTML =
+    '<div class="upload-ico">📸</div><div class="upload-text">Chụp hoặc chọn ảnh</div><div class="upload-hint">JPG, PNG — tối đa 10MB</div>';
+  document.getElementById('upload-zone').onclick = () => document.getElementById('file-input').click();
+  document.getElementById('loc-box').className = 'loc-box';
+  document.getElementById('loc-text').textContent = 'Nhấn để lấy vị trí GPS';
+  locData = null; imgFile = null;
+}
+
+function openModal() { document.getElementById('modal').className = 'modal-bg open'; }
+function closeModal() { document.getElementById('modal').className = 'modal-bg'; }
+function addEmp() {
+  const n = document.getElementById('new-name').value.trim(); if (!n) return;
+  const s = document.getElementById('emp-select');
+  const o = document.createElement('option'); o.value = n; o.textContent = n;
+  s.appendChild(o); s.value = n;
+  closeModal(); document.getElementById('new-name').value = '';
+  toast('✓ Đã thêm: '+n);
+}
+</script>
+</body>
+</html>
