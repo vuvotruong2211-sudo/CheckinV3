@@ -40,6 +40,7 @@
   .upload-text{font-size:14px;color:#888;margin-top:8px;}
   .upload-hint{font-size:12px;color:#bbb;margin-top:4px;}
   #cam-video{width:100%;border-radius:8px;background:#000;display:block;}
+  #cam-video.mirror{transform:scaleX(-1);}
   .cam-btn-row{display:flex;gap:8px;margin-top:8px;}
   .cam-btn-row button{flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
   .cam-btn-row .shot{background:#1D9E75;color:#fff;}
@@ -126,6 +127,7 @@
     <canvas id="cam-canvas" style="display:none"></canvas>
     <div class="cam-btn-row" id="cam-btn-row" style="display:none">
       <button class="shot" id="cam-shot-btn" onclick="capturePhoto()">📸 Chụp ảnh</button>
+      <button class="retake" id="cam-switch-btn" onclick="switchCamera()">🤳 Đổi camera</button>
     </div>
     <div class="cam-btn-row" id="cam-retake-row" style="display:none">
       <button class="retake" onclick="startCamera()">🔄 Chụp lại</button>
@@ -258,12 +260,15 @@ function getLocation() {
 }
 
 // Mở camera chụp realtime (không cho chọn ảnh có sẵn)
+let currentFacingMode = 'user'; // mặc định camera trước (selfie) để xác nhận đúng người check-in
+
 async function startCamera() {
   const zone = document.getElementById('upload-zone');
   const video = document.getElementById('cam-video');
   try {
-    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
     video.srcObject = camStream;
+    video.classList.toggle('mirror', currentFacingMode === 'user');
     zone.style.display = 'none';
     video.style.display = 'block';
     document.getElementById('cam-btn-row').style.display = 'flex';
@@ -272,6 +277,13 @@ async function startCamera() {
   } catch (err) {
     toast('⚠ Không mở được camera. Kiểm tra quyền truy cập trình duyệt.', '#E24B4A');
   }
+}
+
+// Đổi qua lại camera trước (selfie) / camera sau
+async function switchCamera() {
+  currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+  stopCamera();
+  await startCamera();
 }
 
 function stopCamera() {
