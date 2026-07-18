@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Check-in Ca Làm Việc</title>
+<title>TUẤN TÚ EXPRESS - CHẤM CÔNG </title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:#F1EFE8;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:1.5rem 1rem;}
@@ -39,6 +39,11 @@
   .upload-ico{font-size:36px;color:#ccc;}
   .upload-text{font-size:14px;color:#888;margin-top:8px;}
   .upload-hint{font-size:12px;color:#bbb;margin-top:4px;}
+  #cam-video{width:100%;border-radius:8px;background:#000;display:block;}
+  .cam-btn-row{display:flex;gap:8px;margin-top:8px;}
+  .cam-btn-row button{flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
+  .cam-btn-row .shot{background:#1D9E75;color:#fff;}
+  .cam-btn-row .retake{background:#f9f9f7;color:#1a1a1a;border:1px solid #ddd;}
   .submit-btn{width:100%;padding:13px;background:#1D9E75;color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:0.25rem;display:flex;align-items:center;justify-content:center;gap:8px;}
   .submit-btn:disabled{opacity:0.5;cursor:not-allowed;}
   .submit-btn:hover:not(:disabled){background:#0F6E56;}
@@ -71,8 +76,8 @@
   <div class="header">
     <div class="logo">🕐</div>
     <div class="header-text">
-      <h1>Check-in ca làm việc</h1>
-      <div class="sub">Xác nhận có mặt tại nơi làm việc</div>
+      <h1>Chấm công ca làm việc</h1>
+      <div class="sub">Xác nhận có mặt tại văn phòng làm việc</div>
     </div>
     <div class="live-clock">
       <div class="clock-time" id="clk-time">--:--:--</div>
@@ -102,8 +107,8 @@
     <div class="info-box">
       <div class="info-label">Ca làm việc</div>
       <select class="shift-select" id="shift-select">
-        <option value="Sáng (6:00–14:00)">Sáng (6:00–14:00)</option>
-        <option value="Chiều (14:00–22:00)">Chiều (14:00–22:00)</option>
+        <option value="Sáng (6:00–15:00)">Sáng (6:00–15:00)</option>
+        <option value="Chiều (14:00–23:00)">Chiều (14:00–23:00)</option>
         <option value="Tối (22:00–6:00)">Tối (22:00–6:00)</option>
       </select>
     </div>
@@ -111,17 +116,24 @@
 
   <!-- ẢNH -->
   <div class="card">
-    <div class="card-title">📷 Ảnh xác nhận</div>
-    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+    <div class="card-title">📷 Ảnh xác nhận (chụp trực tiếp)</div>
+    <div class="upload-zone" id="upload-zone" onclick="startCamera()">
       <div class="upload-ico">📸</div>
-      <div class="upload-text">Chụp hoặc chọn ảnh</div>
-      <div class="upload-hint">JPG, PNG — tối đa 10MB</div>
+      <div class="upload-text">Nhấn để mở camera</div>
+      <div class="upload-hint">Chỉ chụp realtime — không chọn được ảnh có sẵn</div>
     </div>
-    <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handleFile(event)">
+    <video id="cam-video" style="display:none" autoplay playsinline muted></video>
+    <canvas id="cam-canvas" style="display:none"></canvas>
+    <div class="cam-btn-row" id="cam-btn-row" style="display:none">
+      <button class="shot" id="cam-shot-btn" onclick="capturePhoto()">📸 Chụp ảnh</button>
+    </div>
+    <div class="cam-btn-row" id="cam-retake-row" style="display:none">
+      <button class="retake" onclick="startCamera()">🔄 Chụp lại</button>
+    </div>
   </div>
 
   <div class="note">
-    ℹ️ <span>Tên, vị trí GPS, thời gian thực tế và ảnh sẽ được ghi tự động vào Google Sheet.</span>
+    ℹ️ <span>Tên, vị trí GPS, thời gian thực tế, thiết bị và ảnh chụp trực tiếp sẽ được ghi tự động vào Google Sheet. Hệ thống <b>không chấp nhận ảnh chọn từ thư viện</b> — chỉ chụp realtime tại thời điểm check-in.</span>
   </div>
 
   <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
@@ -189,7 +201,25 @@ async function loadEmployees() {
     sel.innerHTML = '<option value="">⚠ Lỗi kết nối Sheet</option>';
   }
 }
-let locData = null, imgFile = null, submitTime = null;
+let locData = null, imgFile = null, submitTime = null, camStream = null;
+
+// Thiết bị: sinh 1 mã cố định lưu trong máy để phát hiện 1 máy check-in cho nhiều người
+function getDeviceId() {
+  let id = localStorage.getItem('tt_device_id');
+  if (!id) {
+    id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('tt_device_id', id);
+  }
+  return id;
+}
+function getDeviceInfo() {
+  return {
+    deviceId: getDeviceId(),
+    userAgent: navigator.userAgent,
+    platform: navigator.platform || '',
+    screen: screen.width + 'x' + screen.height
+  };
+}
 
 // Đồng hồ thời gian thực
 function tick() {
@@ -227,18 +257,44 @@ function getLocation() {
   );
 }
 
-// Chọn ảnh
-function handleFile(e) {
-  const file = e.target.files[0]; if (!file) return;
-  imgFile = file;
-  const r = new FileReader();
-  r.onload = ev => {
-    const z = document.getElementById('upload-zone');
-    z.className = 'upload-zone has-img';
-    z.innerHTML = '<img src="'+ev.target.result+'" alt="Ảnh check-in">';
-    z.onclick = () => document.getElementById('file-input').click();
-  };
-  r.readAsDataURL(file);
+// Mở camera chụp realtime (không cho chọn ảnh có sẵn)
+async function startCamera() {
+  const zone = document.getElementById('upload-zone');
+  const video = document.getElementById('cam-video');
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = camStream;
+    zone.style.display = 'none';
+    video.style.display = 'block';
+    document.getElementById('cam-btn-row').style.display = 'flex';
+    document.getElementById('cam-retake-row').style.display = 'none';
+    imgFile = null;
+  } catch (err) {
+    toast('⚠ Không mở được camera. Kiểm tra quyền truy cập trình duyệt.', '#E24B4A');
+  }
+}
+
+function stopCamera() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('cam-video');
+  const canvas = document.getElementById('cam-canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(blob => {
+    imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+    const zone = document.getElementById('upload-zone');
+    zone.className = 'upload-zone has-img';
+    zone.style.display = 'block';
+    zone.innerHTML = '<img src="' + canvas.toDataURL('image/jpeg') + '" alt="Ảnh check-in">';
+    video.style.display = 'none';
+    document.getElementById('cam-btn-row').style.display = 'none';
+    document.getElementById('cam-retake-row').style.display = 'flex';
+    stopCamera();
+  }, 'image/jpeg', 0.85);
 }
 
 // Toast
@@ -263,24 +319,10 @@ async function handleSubmit() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinning">⏳</span> Đang gửi...';
 
-  // Nen anh xuong 800px va quality 70% truoc khi gui
   const imgBase64 = await new Promise(res => {
-    const img = new Image();
-    const url = URL.createObjectURL(imgFile);
-    img.onload = () => {
-      const MAX = 800;
-      let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) {
-        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-        else { w = Math.round(w * MAX / h); h = MAX; }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      res(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
-    };
-    img.src = url;
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.readAsDataURL(imgFile);
   });
 
   const payload = {
@@ -295,7 +337,10 @@ async function handleSubmit() {
     accuracy: locData.acc,
     mapsLink: 'https://maps.google.com/?q='+locData.lat+','+locData.lng,
     imageBase64: imgBase64,
-    imageName: imgFile.name || ('checkin_' + Date.now() + '.jpg')
+    imageName: imgFile.name,
+    deviceId: getDeviceInfo().deviceId,
+    userAgent: getDeviceInfo().userAgent,
+    screenRes: getDeviceInfo().screen
   };
 
   try {
@@ -317,12 +362,17 @@ async function handleSubmit() {
 }
 
 function resetForm() {
+  stopCamera();
   document.getElementById('success-overlay').className = 'success-overlay';
   document.getElementById('emp-select').value = '';
-  document.getElementById('upload-zone').className = 'upload-zone';
-  document.getElementById('upload-zone').innerHTML =
-    '<div class="upload-ico">📸</div><div class="upload-text">Chụp hoặc chọn ảnh</div><div class="upload-hint">JPG, PNG — tối đa 10MB</div>';
-  document.getElementById('upload-zone').onclick = () => document.getElementById('file-input').click();
+  const zone = document.getElementById('upload-zone');
+  zone.className = 'upload-zone';
+  zone.style.display = 'block';
+  zone.innerHTML =
+    '<div class="upload-ico">📸</div><div class="upload-text">Nhấn để mở camera</div><div class="upload-hint">Chỉ chụp realtime — không chọn được ảnh có sẵn</div>';
+  document.getElementById('cam-video').style.display = 'none';
+  document.getElementById('cam-btn-row').style.display = 'none';
+  document.getElementById('cam-retake-row').style.display = 'none';
   document.getElementById('loc-box').className = 'loc-box';
   document.getElementById('loc-text').textContent = 'Nhấn để lấy vị trí GPS';
   locData = null; imgFile = null;
