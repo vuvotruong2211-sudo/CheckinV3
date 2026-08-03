@@ -91,10 +91,17 @@
   <div class="card">
     <div class="card-title">👤 Nhân viên</div>
     <label>Họ và tên</label>
-    <select id="emp-select">
+    <select id="emp-select" onchange="updateBioCard()">
       <option value="">⏳ Đang tải danh sách...</option>
     </select>
     <button class="add-btn" onclick="openModal()">➕ Thêm nhân viên mới</button>
+  </div>
+
+  <!-- SINH TRẮC HỌC -->
+  <div class="card" id="bio-card" style="display:none">
+    <div class="card-title">🔒 Xác thực Face ID / Vân tay</div>
+    <div id="bio-status" style="font-size:13px;color:#666;margin-bottom:10px;line-height:1.5;"></div>
+    <button class="submit-btn" id="bio-register-btn" style="display:none;background:#0F6E56" onclick="handleRegisterClick()">👆 Đăng ký ngay trên máy này</button>
   </div>
 
   <!-- VỊ TRÍ & CA -->
@@ -203,7 +210,8 @@ async function loadEmployees() {
     sel.innerHTML = '<option value="">⚠ Lỗi kết nối Sheet</option>';
   }
 }
-let locData = null, imgFile = null, submitTime = null, camStream = null;
+let locData = null, imgFile = null, submitTime = null, camStream = null, captureTimestamp = null;
+const MAX_CAPTURE_TO_SUBMIT_MS = 90 * 1000; // ảnh chụp quá 90 giây chưa gửi -> bắt chụp lại
 
 // Thiết bị: sinh 1 mã cố định lưu trong máy để phát hiện 1 máy check-in cho nhiều người
 function getDeviceId() {
@@ -221,6 +229,110 @@ function getDeviceInfo() {
     platform: navigator.platform || '',
     screen: screen.width + 'x' + screen.height
   };
+}
+
+// ============================================================
+// XÁC THỰC SINH TRẮC HỌC (WebAuthn - Face ID / Vân tay)
+// Mỗi nhân viên đăng ký 1 lần trên đúng máy của họ. Từ đó mỗi lần
+// gửi check-in bắt buộc phải Face ID/vân tay thành công trên đúng
+// máy đã đăng ký thì mới gửi được -> không ai bấm giùm ai được nữa.
+// ============================================================
+function bufToBase64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+function base64ToBuf(b64) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+function bioKey(name) { return 'tt_webauthn_' + name; }
+function getRegisteredCredId(name) { return localStorage.getItem(bioKey(name)); }
+
+function updateBioCard() {
+  const empRaw = document.getElementById('emp-select').value;
+  const emp = empRaw.replace(/ 🚗| 🏢/g, '').trim();
+  const card = document.getElementById('bio-card');
+  const status = document.getElementById('bio-status');
+  const btn = document.getElementById('bio-register-btn');
+  if (!emp) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  if (!window.PublicKeyCredential) {
+    status.textContent = '⚠ Điện thoại/trình duyệt này không hỗ trợ Face ID/vân tay qua web. Bỏ qua bước xác thực này, chỉ dùng ảnh + GPS như bình thường.';
+    btn.style.display = 'none';
+    return;
+  }
+  if (getRegisteredCredId(emp)) {
+    status.innerHTML = '✅ Đã đăng ký trên máy này. Mỗi lần gửi check-in sẽ yêu cầu Face ID/vân tay để xác nhận đúng người.';
+    btn.style.display = 'none';
+  } else {
+    status.textContent = 'Chưa đăng ký trên máy này. Đăng ký 1 lần duy nhất, các lần check-in sau không cần đăng ký lại:';
+    btn.style.display = 'flex';
+  }
+}
+
+async function handleRegisterClick() {
+  const empRaw = document.getElementById('emp-select').value;
+  const emp = empRaw.replace(/ 🚗| 🏢/g, '').trim();
+  if (!emp) return;
+  await registerBiometric(emp);
+  updateBioCard();
+}
+
+async function registerBiometric(name) {
+  try {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const userId = crypto.getRandomValues(new Uint8Array(16));
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'Tuan Tu Express Checkin' },
+        user: { id: userId, name: name, displayName: name },
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+        authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+        timeout: 60000
+      }
+    });
+    localStorage.setItem(bioKey(name), bufToBase64(cred.rawId));
+    toast('✓ Đã đăng ký Face ID/vân tay cho ' + name);
+    return true;
+  } catch (err) {
+    toast('⚠ Đăng ký thất bại hoặc bị huỷ', '#E24B4A');
+    return false;
+  }
+}
+
+async function verifyBiometric(name) {
+  const credIdB64 = getRegisteredCredId(name);
+  if (!credIdB64) return null; // chưa đăng ký
+  try {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ id: base64ToBuf(credIdB64), type: 'public-key' }],
+        userVerification: 'required',
+        timeout: 60000
+      }
+    });
+    return !!assertion;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Chặn trước khi cho gửi: bắt buộc Face ID/vân tay đúng máy đã đăng ký
+async function handleBiometricGate(name) {
+  if (!window.PublicKeyCredential) return true; // máy không hỗ trợ -> bỏ qua, không chặn
+  const credId = getRegisteredCredId(name);
+  if (!credId) {
+    toast('⚠ ' + name + ' chưa đăng ký Face ID/vân tay trên máy này. Vui lòng đăng ký trước khi gửi.', '#BA7517');
+    return false;
+  }
+  toast('🔒 Đang xác thực Face ID/vân tay...', '#1D9E75');
+  const ok = await verifyBiometric(name);
+  if (!ok) {
+    toast('❌ Xác thực thất bại hoặc bị huỷ. Không thể gửi check-in.', '#E24B4A');
+    return false;
+  }
+  return true;
 }
 
 // Đồng hồ thời gian thực
@@ -298,6 +410,7 @@ function capturePhoto() {
   canvas.getContext('2d').drawImage(video, 0, 0);
   canvas.toBlob(blob => {
     imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+    captureTimestamp = Date.now(); // ghi lại thời điểm chụp -> chặn gửi trễ
     const zone = document.getElementById('upload-zone');
     zone.className = 'upload-zone has-img';
     zone.style.display = 'block';
@@ -326,6 +439,17 @@ async function handleSubmit() {
   if (!locData) return toast('⚠ Vui lòng lấy vị trí GPS trước','#BA7517');
   if (!imgFile) return toast('⚠ Vui lòng chọn ảnh check-in','#BA7517');
 
+  // Chặn ảnh chụp từ lâu rồi mới bấm gửi (vd chụp tối hôm trước, sáng hôm sau mới gửi)
+  if (!captureTimestamp || (Date.now() - captureTimestamp) > MAX_CAPTURE_TO_SUBMIT_MS) {
+    toast('⚠ Ảnh chụp đã quá lâu. Vui lòng chụp lại ảnh mới rồi gửi ngay.', '#BA7517');
+    resetPhotoOnly();
+    return;
+  }
+
+  // Bắt buộc xác thực Face ID/vân tay đúng máy đã đăng ký trước khi gửi
+  const bioOk = await handleBiometricGate(emp);
+  if (!bioOk) return;
+
   submitTime = new Date();
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
@@ -352,7 +476,8 @@ async function handleSubmit() {
     imageName: imgFile.name,
     deviceId: getDeviceInfo().deviceId,
     userAgent: getDeviceInfo().userAgent,
-    screenRes: getDeviceInfo().screen
+    screenRes: getDeviceInfo().screen,
+    bioVerified: (window.PublicKeyCredential && getRegisteredCredId(emp)) ? 'Co' : 'Khong'
   };
 
   try {
@@ -377,6 +502,15 @@ function resetForm() {
   stopCamera();
   document.getElementById('success-overlay').className = 'success-overlay';
   document.getElementById('emp-select').value = '';
+  document.getElementById('bio-card').style.display = 'none';
+  resetPhotoOnly();
+  document.getElementById('loc-box').className = 'loc-box';
+  document.getElementById('loc-text').textContent = 'Nhấn để lấy vị trí GPS';
+  locData = null;
+}
+
+// Chỉ reset lại phần ảnh (dùng khi ảnh chụp quá lâu chưa gửi), giữ nguyên tên/GPS đã chọn
+function resetPhotoOnly() {
   const zone = document.getElementById('upload-zone');
   zone.className = 'upload-zone';
   zone.style.display = 'block';
@@ -385,9 +519,8 @@ function resetForm() {
   document.getElementById('cam-video').style.display = 'none';
   document.getElementById('cam-btn-row').style.display = 'none';
   document.getElementById('cam-retake-row').style.display = 'none';
-  document.getElementById('loc-box').className = 'loc-box';
-  document.getElementById('loc-text').textContent = 'Nhấn để lấy vị trí GPS';
-  locData = null; imgFile = null;
+  imgFile = null;
+  captureTimestamp = null;
 }
 
 function openModal() { document.getElementById('modal').className = 'modal-bg open'; }
