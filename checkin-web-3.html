@@ -22,7 +22,16 @@
   label{font-size:13px;color:#555;display:block;margin-bottom:5px;}
   select,input[type=text]{width:100%;padding:9px 12px;font-size:14px;border:1px solid #ddd;border-radius:8px;background:#f9f9f7;color:#1a1a1a;outline:none;}
   select:focus,input:focus{border-color:#1D9E75;}
-  .add-btn{font-size:13px;color:#1D9E75;cursor:pointer;background:none;border:none;margin-top:8px;display:flex;align-items:center;gap:4px;padding:0;}
+  .emp-search-wrap{position:relative;}
+  .emp-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;max-height:220px;overflow-y:auto;z-index:50;box-shadow:0 6px 18px rgba(0,0,0,0.08);}
+  .emp-dropdown.open{display:block;}
+  .emp-opt{padding:10px 12px;font-size:14px;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .emp-opt:hover,.emp-opt.hl{background:#E1F5EE;}
+  .emp-opt .dept-ico{flex-shrink:0;}
+  .emp-empty{padding:10px 12px;font-size:13px;color:#999;}
+  .emp-selected-tag{display:none;align-items:center;justify-content:space-between;gap:8px;background:#E1F5EE;border:1px solid #1D9E75;border-radius:8px;padding:9px 12px;margin-top:6px;font-size:14px;color:#0F6E56;font-weight:600;}
+  .emp-selected-tag.show{display:flex;}
+  .emp-selected-tag .clear-emp{cursor:pointer;color:#0F6E56;font-weight:400;font-size:12px;background:none;border:none;text-decoration:underline;}
   .loc-box{background:#f9f9f7;border-radius:8px;padding:10px 14px;font-size:13px;color:#666;display:flex;align-items:center;gap:8px;cursor:pointer;border:1px solid #ddd;}
   .loc-box:hover{border-color:#1D9E75;}
   .loc-box.active{border-color:#1D9E75;color:#0F6E56;background:#E1F5EE;}
@@ -91,10 +100,14 @@
   <div class="card">
     <div class="card-title">👤 Nhân viên</div>
     <label>Họ và tên</label>
-    <select id="emp-select" onchange="updateBioCard()">
-      <option value="">⏳ Đang tải danh sách...</option>
-    </select>
-    <button class="add-btn" onclick="openModal()">➕ Thêm nhân viên mới</button>
+    <div class="emp-search-wrap">
+      <input type="text" id="emp-input" placeholder="⏳ Đang tải danh sách..." autocomplete="off" oninput="onEmpInput()" onfocus="onEmpInput()">
+      <div class="emp-dropdown" id="emp-dropdown"></div>
+    </div>
+    <div class="emp-selected-tag" id="emp-selected-tag">
+      <span id="emp-selected-text"></span>
+      <button class="clear-emp" onclick="clearEmpSelection()">Đổi</button>
+    </div>
   </div>
 
   <!-- SINH TRẮC HỌC -->
@@ -153,19 +166,6 @@
 <!-- TOAST -->
 <div class="toast-wrap"><div class="toast" id="toast"></div></div>
 
-<!-- MODAL THÊM NHÂN VIÊN -->
-<div class="modal-bg" id="modal">
-  <div class="modal">
-    <h3>Thêm nhân viên mới</h3>
-    <label>Họ và tên đầy đủ</label>
-    <input type="text" id="new-name" placeholder="Vd: Nguyễn Văn Nam">
-    <div class="modal-row">
-      <button onclick="closeModal()">Huỷ</button>
-      <button class="ok" onclick="addEmp()">Thêm</button>
-    </div>
-  </div>
-</div>
-
 <!-- SUCCESS -->
 <div class="success-overlay" id="success-overlay">
   <div class="success-box">
@@ -187,29 +187,82 @@ const DAYS = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Th
 
 // Tải danh sách nhân viên từ Google Sheet
 var empDeptMap = {}; // luu bo phan cua tung nhan vien
+var employeeList = []; // danh sach goc { name, dept }
+var selectedEmpName = ''; // ten nhan vien dang duoc chon (sach, khong icon)
+var hlIndex = -1; // vi tri dang highlight trong dropdown (dieu huong ban phim)
 
 async function loadEmployees() {
-  const sel = document.getElementById('emp-select');
+  const input = document.getElementById('emp-input');
   try {
     const res = await fetch(APPS_SCRIPT_URL, { method: 'GET', mode: 'cors' });
     const data = await res.json();
-    sel.innerHTML = '<option value="">-- Chọn nhân viên --</option>';
     if (data.success && data.employees.length > 0) {
-      data.employees.forEach(emp => {
-        empDeptMap[emp.name] = emp.dept;
-        const o = document.createElement('option');
-        o.value = emp.name;
-        const deptLabel = emp.dept === 'tai xe' ? ' 🚗' : ' 🏢';
-        o.textContent = emp.name + deptLabel;
-        sel.appendChild(o);
-      });
+      employeeList = data.employees;
+      employeeList.forEach(emp => { empDeptMap[emp.name] = emp.dept; });
+      input.placeholder = '🔍 Gõ tên để tìm...';
     } else {
-      sel.innerHTML = '<option value="">⚠ Không tải được danh sách</option>';
+      input.placeholder = '⚠ Không tải được danh sách';
     }
   } catch(err) {
-    sel.innerHTML = '<option value="">⚠ Lỗi kết nối Sheet</option>';
+    input.placeholder = '⚠ Lỗi kết nối Sheet';
   }
 }
+
+// Loc danh sach theo tu go, khong phan biet hoa/thuong va khong dau
+function normalizeVi(s) {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g,'d');
+}
+
+function renderEmpDropdown(list) {
+  const dd = document.getElementById('emp-dropdown');
+  hlIndex = -1;
+  if (list.length === 0) {
+    dd.innerHTML = '<div class="emp-empty">Không tìm thấy nhân viên phù hợp</div>';
+    dd.className = 'emp-dropdown open';
+    return;
+  }
+  dd.innerHTML = list.map((emp, i) => {
+    const ico = emp.dept === 'tai xe' ? '🚗' : '🏢';
+    return '<div class="emp-opt" data-name="' + emp.name.replace(/"/g,'&quot;') + '" onclick="selectEmp(this.dataset.name)">'
+      + '<span>' + emp.name + '</span><span class="dept-ico">' + ico + '</span></div>';
+  }).join('');
+  dd.className = 'emp-dropdown open';
+}
+
+function onEmpInput() {
+  const q = normalizeVi(document.getElementById('emp-input').value.trim());
+  const filtered = q === '' ? employeeList : employeeList.filter(emp => normalizeVi(emp.name).includes(q));
+  renderEmpDropdown(filtered);
+}
+
+function selectEmp(name) {
+  selectedEmpName = name;
+  document.getElementById('emp-input').value = '';
+  document.getElementById('emp-dropdown').className = 'emp-dropdown';
+  const dept = empDeptMap[name] || '';
+  const ico = dept === 'tai xe' ? '🚗' : '🏢';
+  document.getElementById('emp-selected-text').textContent = ico + ' ' + name;
+  document.getElementById('emp-selected-tag').classList.add('show');
+  document.getElementById('emp-input').style.display = 'none';
+  updateBioCard();
+}
+
+function clearEmpSelection() {
+  selectedEmpName = '';
+  document.getElementById('emp-selected-tag').classList.remove('show');
+  document.getElementById('emp-input').style.display = 'block';
+  document.getElementById('emp-input').value = '';
+  document.getElementById('emp-input').focus();
+  document.getElementById('bio-card').style.display = 'none';
+}
+
+// Bam ra ngoai dropdown thi tu dong dong lai
+document.addEventListener('click', function(e) {
+  const wrap = document.querySelector('.emp-search-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('emp-dropdown').className = 'emp-dropdown';
+  }
+});
 let locData = null, imgFile = null, submitTime = null, camStream = null, captureTimestamp = null;
 const MAX_CAPTURE_TO_SUBMIT_MS = 90 * 1000; // ảnh chụp quá 90 giây chưa gửi -> bắt chụp lại
 
@@ -247,8 +300,7 @@ function bioKey(name) { return 'tt_webauthn_' + name; }
 function getRegisteredCredId(name) { return localStorage.getItem(bioKey(name)); }
 
 function updateBioCard() {
-  const empRaw = document.getElementById('emp-select').value;
-  const emp = empRaw.replace(/ 🚗| 🏢/g, '').trim();
+  const emp = selectedEmpName;
   const card = document.getElementById('bio-card');
   const status = document.getElementById('bio-status');
   const btn = document.getElementById('bio-register-btn');
@@ -269,8 +321,7 @@ function updateBioCard() {
 }
 
 async function handleRegisterClick() {
-  const empRaw = document.getElementById('emp-select').value;
-  const emp = empRaw.replace(/ 🚗| 🏢/g, '').trim();
+  const emp = selectedEmpName;
   if (!emp) return;
   await registerBiometric(emp);
   updateBioCard();
@@ -431,8 +482,7 @@ function toast(msg, color) {
 }
 
 async function handleSubmit() {
-  const empRaw = document.getElementById('emp-select').value;
-  const emp = empRaw.replace(/ 🚗| 🏢/g, '').trim();
+  const emp = selectedEmpName;
   const dept = empDeptMap[emp] || '';
   const shift = document.getElementById('shift-select').value;
   if (!emp) return toast('⚠ Vui lòng chọn nhân viên','#BA7517');
@@ -501,7 +551,7 @@ async function handleSubmit() {
 function resetForm() {
   stopCamera();
   document.getElementById('success-overlay').className = 'success-overlay';
-  document.getElementById('emp-select').value = '';
+  clearEmpSelection();
   document.getElementById('bio-card').style.display = 'none';
   resetPhotoOnly();
   document.getElementById('loc-box').className = 'loc-box';
@@ -523,16 +573,6 @@ function resetPhotoOnly() {
   captureTimestamp = null;
 }
 
-function openModal() { document.getElementById('modal').className = 'modal-bg open'; }
-function closeModal() { document.getElementById('modal').className = 'modal-bg'; }
-function addEmp() {
-  const n = document.getElementById('new-name').value.trim(); if (!n) return;
-  const s = document.getElementById('emp-select');
-  const o = document.createElement('option'); o.value = n; o.textContent = n;
-  s.appendChild(o); s.value = n;
-  closeModal(); document.getElementById('new-name').value = '';
-  toast('✓ Đã thêm: '+n);
-}
 </script>
 </body>
 </html>
