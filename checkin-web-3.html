@@ -572,13 +572,16 @@ async function handleSubmit() {
   };
 
   try {
+    // QUAN TRONG: dung Content-Type: text/plain (khong phai application/json) de trinh duyet
+    // KHONG gui preflight OPTIONS - vi Google Apps Script khong xu ly duoc OPTIONS request,
+    // neu de application/json trinh duyet se tu dong preflight va bi chan -> loi "Loi ket noi".
+    // Server (Code.gs) van doc binh thuong vi JSON.parse(e.postData.contents) khong quan tam
+    // Content-Type header ghi la gi, chi can noi dung la chuoi JSON hop le.
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-    // Luu y: doGet dung mode 'cors' de doc duoc JSON tra ve (vd bao loi qua han 2 phut tu server).
-    // doPost o day KHONG dat mode:'no-cors' nua vi can doc duoc response.success de bao loi that.
     let result = { success: true };
     try { result = await res.json(); } catch(e) {}
 
