@@ -295,6 +295,26 @@ function getSilentPosition() {
   });
 }
 
+// Sinh 1 ma yeu cau rieng cho MOI LAN gui check-in (khac voi deviceId la ma co dinh cua may)
+function genRequestId() {
+  return 'req-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+// Hoi lai KET QUA THAT cua 1 lan gui, bang GET (doc duoc phan hoi binh thuong,
+// khac voi POST dung no-cors khong doc duoc). Thu lai vai lan vi server
+// co the mat 1-2 giay de xu ly xong va luu ket qua vao cache.
+async function pollCheckinResult(requestId, maxTries) {
+  for (let i = 0; i < maxTries; i++) {
+    await new Promise(r => setTimeout(r, 1000)); // doi 1 giay giua moi lan hoi
+    try {
+      const res = await fetch(APPS_SCRIPT_URL + '?action=status&id=' + encodeURIComponent(requestId), { method: 'GET', mode: 'cors' });
+      const data = await res.json();
+      if (data.success !== null) return data; // da co ket qua that (thanh cong hoac bi tu choi)
+    } catch (err) { /* loi mang tam thoi, thu lai vong sau */ }
+  }
+  return null; // qua so lan thu ma van chua co ket qua -> khong chac chan
+}
+
 // Thiết bị: sinh 1 mã cố định lưu trong máy để phát hiện 1 máy check-in cho nhiều người
 function getDeviceId() {
   let id = localStorage.getItem('tt_device_id');
@@ -568,34 +588,44 @@ async function handleSubmit() {
     captureServerTime: captureServerTime,
     // D) GPS luc chup anh - server se so khop voi lat/lng luc gui de phat hien lech bat thuong
     captureLat: captureGps ? captureGps.lat : null,
-    captureLng: captureGps ? captureGps.lng : null
+    captureLng: captureGps ? captureGps.lng : null,
+    // Ma rieng cho lan gui nay - dung de hoi lai ket qua that qua GET (xem pollCheckinResult)
+    requestId: genRequestId()
   };
 
   try {
-    // QUAN TRONG: dung Content-Type: text/plain (khong phai application/json) de trinh duyet
-    // KHONG gui preflight OPTIONS - vi Google Apps Script khong xu ly duoc OPTIONS request,
-    // neu de application/json trinh duyet se tu dong preflight va bi chan -> loi "Loi ket noi".
-    // Server (Code.gs) van doc binh thuong vi JSON.parse(e.postData.contents) khong quan tam
-    // Content-Type header ghi la gi, chi can noi dung la chuoi JSON hop le.
-    const res = await fetch(APPS_SCRIPT_URL, {
+    // QUAN TRONG: van dung mode 'no-cors' de GUI di chac chan khong bi loi CORS chan.
+    // Khong con dua vao response cua chinh POST nay nua (vi doc khong duoc) - thay vao do,
+    // ngay sau khi gui xong se GOI RIENG 1 request GET (o duoi) de hoi lai KET QUA THAT.
+    btn.innerHTML = '<span class="spinning">⏳</span> Đang xác nhận với máy chủ...';
+    await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-    let result = { success: true };
-    try { result = await res.json(); } catch(e) {}
 
-    if (result.success === false) {
-      toast('⚠ ' + (result.message || 'Bị từ chối bởi máy chủ.'), '#E24B4A');
+    // Hoi lai ket qua THAT qua GET (toi da 6 lan, moi lan cach 1 giay = doi toi 6 giay)
+    const result = await pollCheckinResult(payload.requestId, 6);
+
+    if (result === null) {
+      // Qua 6 giay van chua co ket qua ro rang - co the mang cham, nhung du lieu
+      // rat co the da duoc ghi (chi la chua kip doc lai). Bao trung lap de anh tu kiem tra.
+      toast('⚠ Không xác nhận được kết quả từ máy chủ. Vui lòng kiểm tra lại trên Google Sheet trước khi gửi lại.', '#BA7517');
+    } else if (result.success === false) {
+      // Server TU CHOI that su (vd anh qua han 2 phut) - KHONG duoc bao thanh cong
+      toast('❌ ' + (result.message || 'Bị máy chủ từ chối.'), '#E24B4A');
       resetPhotoOnly();
       btn.disabled = false;
       btn.innerHTML = '📤 Gửi check-in';
       return;
+    } else {
+      // Server XAC NHAN thanh cong that su
+      document.getElementById('success-detail').textContent =
+        emp + ' — ' + submitTime.toLocaleString('vi-VN')
+        + (result.warning ? ('\n⚠ ' + result.warning) : '');
+      document.getElementById('success-overlay').className = 'success-overlay open';
     }
-
-    document.getElementById('success-detail').textContent =
-      emp + ' — ' + submitTime.toLocaleString('vi-VN');
-    document.getElementById('success-overlay').className = 'success-overlay open';
   } catch(err) {
     toast('❌ Lỗi kết nối. Kiểm tra lại URL Script.','#E24B4A');
   }
