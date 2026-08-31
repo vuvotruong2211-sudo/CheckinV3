@@ -264,7 +264,36 @@ document.addEventListener('click', function(e) {
   }
 });
 let locData = null, imgFile = null, submitTime = null, camStream = null, captureTimestamp = null;
-const MAX_CAPTURE_TO_SUBMIT_MS = 90 * 1000; // ảnh chụp quá 90 giây chưa gửi -> bắt chụp lại
+// GHI CHU: MAX_CAPTURE_TO_SUBMIT_MS o client chi de canh bao SOM cho nhan vien (UX).
+// Nguong CHAN THAT SU nam o server (Code.gs), dung gio server that -> khong the gia mao.
+const MAX_CAPTURE_TO_SUBMIT_MS = 90 * 1000;
+
+// B+D: gio server that + GPS luc chup, lay ngam khi bam nut "Chup anh", khong lam phien nhan vien
+let captureServerTime = null;
+let captureGps = null;
+
+// Lay gio THAT tu server Google (khong dung gio dat tren dien thoai nhan vien)
+async function getServerTime() {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=time', { method: 'GET', mode: 'cors' });
+    const data = await res.json();
+    return data.serverTime || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+// Lay GPS "am tham" (khong doi UI, khong bao loi ra ngoai) de doi chieu voi GPS luc gui
+function getSilentPosition() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  });
+}
 
 // Thiết bị: sinh 1 mã cố định lưu trong máy để phát hiện 1 máy check-in cho nhiều người
 function getDeviceId() {
@@ -459,9 +488,10 @@ function capturePhoto() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
-  canvas.toBlob(blob => {
+  canvas.toBlob(async blob => {
     imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
-    captureTimestamp = Date.now(); // ghi lại thời điểm chụp -> chặn gửi trễ
+    captureTimestamp = Date.now(); // ghi lại thời điểm chụp (giờ máy) -> chỉ dùng cảnh báo sớm phía UI
+
     const zone = document.getElementById('upload-zone');
     zone.className = 'upload-zone has-img';
     zone.style.display = 'block';
@@ -470,6 +500,11 @@ function capturePhoto() {
     document.getElementById('cam-btn-row').style.display = 'none';
     document.getElementById('cam-retake-row').style.display = 'flex';
     stopCamera();
+
+    // B+D: lay ngam gio server that + GPS ngay luc chup, khong can nhan vien thao tac gi them
+    const [srvTime, gps] = await Promise.all([getServerTime(), getSilentPosition()]);
+    captureServerTime = srvTime;
+    captureGps = gps;
   }, 'image/jpeg', 0.85);
 }
 
@@ -489,7 +524,8 @@ async function handleSubmit() {
   if (!locData) return toast('⚠ Vui lòng lấy vị trí GPS trước','#BA7517');
   if (!imgFile) return toast('⚠ Vui lòng chọn ảnh check-in','#BA7517');
 
-  // Chặn ảnh chụp từ lâu rồi mới bấm gửi (vd chụp tối hôm trước, sáng hôm sau mới gửi)
+  // Canh bao SOM phia client (dung gio may, chi de UX phan hoi nhanh).
+  // Chan THAT SU (khong the gia mao) nam o server, dung gio server that - xem Code.gs.
   if (!captureTimestamp || (Date.now() - captureTimestamp) > MAX_CAPTURE_TO_SUBMIT_MS) {
     toast('⚠ Ảnh chụp đã quá lâu. Vui lòng chụp lại ảnh mới rồi gửi ngay.', '#BA7517');
     resetPhotoOnly();
@@ -527,16 +563,33 @@ async function handleSubmit() {
     deviceId: getDeviceInfo().deviceId,
     userAgent: getDeviceInfo().userAgent,
     screenRes: getDeviceInfo().screen,
-    bioVerified: (window.PublicKeyCredential && getRegisteredCredId(emp)) ? 'Co' : 'Khong'
+    bioVerified: (window.PublicKeyCredential && getRegisteredCredId(emp)) ? 'Co' : 'Khong',
+    // B) gio server that luc chup anh - server se doi chieu, khong dung duoc gio may de gia mao
+    captureServerTime: captureServerTime,
+    // D) GPS luc chup anh - server se so khop voi lat/lng luc gui de phat hien lech bat thuong
+    captureLat: captureGps ? captureGps.lat : null,
+    captureLng: captureGps ? captureGps.lng : null
   };
 
   try {
-    await fetch(APPS_SCRIPT_URL, {
+    const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    // Luu y: doGet dung mode 'cors' de doc duoc JSON tra ve (vd bao loi qua han 2 phut tu server).
+    // doPost o day KHONG dat mode:'no-cors' nua vi can doc duoc response.success de bao loi that.
+    let result = { success: true };
+    try { result = await res.json(); } catch(e) {}
+
+    if (result.success === false) {
+      toast('⚠ ' + (result.message || 'Bị từ chối bởi máy chủ.'), '#E24B4A');
+      resetPhotoOnly();
+      btn.disabled = false;
+      btn.innerHTML = '📤 Gửi check-in';
+      return;
+    }
+
     document.getElementById('success-detail').textContent =
       emp + ' — ' + submitTime.toLocaleString('vi-VN');
     document.getElementById('success-overlay').className = 'success-overlay open';
@@ -571,6 +624,8 @@ function resetPhotoOnly() {
   document.getElementById('cam-retake-row').style.display = 'none';
   imgFile = null;
   captureTimestamp = null;
+  captureServerTime = null;
+  captureGps = null;
 }
 
 </script>
