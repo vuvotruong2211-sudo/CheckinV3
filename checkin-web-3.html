@@ -204,7 +204,7 @@ async function loadEmployees() {
       input.placeholder = '⚠ Không tải được danh sách';
     }
   } catch(err) {
-    input.placeholder = '⚠ Lỗi kết nối Sheet';
+    input.placeholder = '⚠ Lỗi kết nối. Vui lòng kiểm tra lại!';
   }
 }
 
@@ -627,7 +627,7 @@ async function handleSubmit() {
       document.getElementById('success-overlay').className = 'success-overlay open';
     }
   } catch(err) {
-    toast('❌ Lỗi kết nối. Kiểm tra lại URL Script.','#E24B4A');
+    toast('❌ Lỗi kết nối. Vui lòng kiểm tra lại cấu hình.','#E24B4A');
   }
 
   btn.disabled = false;
