@@ -48,7 +48,7 @@
   .upload-ico{font-size:36px;color:#ccc;}
   .upload-text{font-size:14px;color:#888;margin-top:8px;}
   .upload-hint{font-size:12px;color:#bbb;margin-top:4px;}
-  #cam-video{width:100%;border-radius:8px;background:#000;display:block;}
+  #cam-video{width:100%;border-radius:8px;background:#000;display:block;filter:brightness(1.08) contrast(1.08) saturate(1.08);}
   #cam-video.mirror{transform:scaleX(-1);}
   .cam-btn-row{display:flex;gap:8px;margin-top:8px;}
   .cam-btn-row button{flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
@@ -204,7 +204,7 @@ async function loadEmployees() {
       input.placeholder = '⚠ Không tải được danh sách';
     }
   } catch(err) {
-    input.placeholder = '⚠ Lỗi kết nối. Vui lòng kiểm tra lại!';
+    input.placeholder = '⚠ Lỗi kết nối Sheet';
   }
 }
 
@@ -507,7 +507,12 @@ function capturePhoto() {
   const canvas = document.getElementById('cam-canvas');
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
+  const ctx = canvas.getContext('2d');
+  // Chinh anh nhe cho de nhin hon: tang sang/tuong phan/mau sac vua phai.
+  // CHU Y: chi chinh o muc "tu nhien hoa" (khong lam min da / bien dang khuon mat)
+  // vi anh nay dung de XAC NHAN DUNG NGUOI, chinh qua tay se kho nhan dien that.
+  ctx.filter = 'brightness(1.08) contrast(1.08) saturate(1.08)';
+  ctx.drawImage(video, 0, 0);
   canvas.toBlob(async blob => {
     imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
     captureTimestamp = Date.now(); // ghi lại thời điểm chụp (giờ máy) -> chỉ dùng cảnh báo sớm phía UI
@@ -627,7 +632,7 @@ async function handleSubmit() {
       document.getElementById('success-overlay').className = 'success-overlay open';
     }
   } catch(err) {
-    toast('❌ Lỗi kết nối. Vui lòng kiểm tra lại cấu hình.','#E24B4A');
+    toast('❌ Lỗi kết nối. Kiểm tra lại URL Script.','#E24B4A');
   }
 
   btn.disabled = false;
