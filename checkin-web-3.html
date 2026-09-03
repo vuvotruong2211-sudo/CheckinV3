@@ -305,7 +305,10 @@ function genRequestId() {
 // co the mat 1-2 giay de xu ly xong va luu ket qua vao cache.
 async function pollCheckinResult(requestId, maxTries) {
   for (let i = 0; i < maxTries; i++) {
-    await new Promise(r => setTimeout(r, 1000)); // doi 1 giay giua moi lan hoi
+    // TOI UU TOC DO: giam thoi gian cho giua moi lan hoi tu 1000ms xuong 400ms.
+    // Vi luc goi ham nay, POST da hoan tat xong xuoi (fetch da await xong),
+    // nen ket qua THUONG DA CO SAN ngay tu lan hoi dau tien - khong can cho lau.
+    await new Promise(r => setTimeout(r, 400));
     try {
       const res = await fetch(APPS_SCRIPT_URL + '?action=status&id=' + encodeURIComponent(requestId), { method: 'GET', mode: 'cors' });
       const data = await res.json();
@@ -505,14 +508,24 @@ function stopCamera() {
 function capturePhoto() {
   const video = document.getElementById('cam-video');
   const canvas = document.getElementById('cam-canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+
+  // TOI UU TOC DO: gioi han chieu rong toi da 1280px thay vi giu nguyen
+  // do phan giai goc cua camera (thuong 3000-4000px, nang 3-8MB/anh).
+  // Anh 1280px van du net de nhan dien dung nguoi bang mat thuong, nhung
+  // dung luong giam con khoang 200-500KB -> truyen mang + luu Drive nhanh
+  // hon dang ke, day la nguyen nhan chinh khien check-in cam giac lau.
+  const MAX_WIDTH = 1280;
+  const scale = Math.min(1, MAX_WIDTH / video.videoWidth);
+  canvas.width = Math.round(video.videoWidth * scale);
+  canvas.height = Math.round(video.videoHeight * scale);
+
   const ctx = canvas.getContext('2d');
   // Chinh anh nhe cho de nhin hon: tang sang/tuong phan/mau sac vua phai.
   // CHU Y: chi chinh o muc "tu nhien hoa" (khong lam min da / bien dang khuon mat)
   // vi anh nay dung de XAC NHAN DUNG NGUOI, chinh qua tay se kho nhan dien that.
   ctx.filter = 'brightness(1.08) contrast(1.08) saturate(1.08)';
-  ctx.drawImage(video, 0, 0);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // Giam nhe chat luong nen JPEG (0.85 -> 0.75) - anh van ro, dung luong giam them
   canvas.toBlob(async blob => {
     imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
     captureTimestamp = Date.now(); // ghi lại thời điểm chụp (giờ máy) -> chỉ dùng cảnh báo sớm phía UI
@@ -530,7 +543,7 @@ function capturePhoto() {
     const [srvTime, gps] = await Promise.all([getServerTime(), getSilentPosition()]);
     captureServerTime = srvTime;
     captureGps = gps;
-  }, 'image/jpeg', 0.85);
+  }, 'image/jpeg', 0.75);
 }
 
 // Toast
@@ -611,7 +624,7 @@ async function handleSubmit() {
     });
 
     // Hoi lai ket qua THAT qua GET (toi da 6 lan, moi lan cach 1 giay = doi toi 6 giay)
-    const result = await pollCheckinResult(payload.requestId, 6);
+    const result = await pollCheckinResult(payload.requestId, 10);
 
     if (result === null) {
       // Qua 6 giay van chua co ket qua ro rang - co the mang cham, nhung du lieu
