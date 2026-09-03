@@ -44,7 +44,7 @@
   .upload-zone{border:1.5px dashed #ccc;border-radius:8px;padding:2rem 1rem;text-align:center;cursor:pointer;}
   .upload-zone:hover{border-color:#1D9E75;}
   .upload-zone.has-img{border-style:solid;border-color:#1D9E75;padding:0;overflow:hidden;}
-  .upload-zone img{width:100%;height:200px;object-fit:cover;border-radius:7px;display:block;}
+  .upload-zone img{width:100%;height:200px;object-fit:cover;border-radius:7px 7px 0 0;display:block;}
   .upload-ico{font-size:36px;color:#ccc;}
   .upload-text{font-size:14px;color:#888;margin-top:8px;}
   .upload-hint{font-size:12px;color:#bbb;margin-top:4px;}
@@ -155,7 +155,7 @@
   </div>
 
   <div class="note">
-    ℹ️ <span>Tên, vị trí GPS, thời gian thực tế, thiết bị và ảnh chụp trực tiếp sẽ được ghi tự động vào Google Sheet. Hệ thống <b>không chấp nhận ảnh chọn từ thư viện</b> — chỉ chụp realtime tại thời điểm check-in.</span>
+    ℹ️ <span>Tên, vị trí GPS, thời gian thực tế, thiết bị và ảnh chụp trực tiếp sẽ được ghi tự động vào Google Sheet. Hệ thống <b>không chấp nhận ảnh chọn từ thư viện</b> — chỉ chụp realtime tại thời điểm check-in. Ảnh được tự động nén nhẹ để gửi nhanh hơn.</span>
   </div>
 
   <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
@@ -184,6 +184,10 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyWxe6-W51IUHxS
 // ============================================================
 
 const DAYS = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+
+// ==== TỐI ƯU ẢNH: resize + nén lặp cho tới khi đạt mục tiêu dung lượng ====
+const PHOTO_MAX_DIM = 800;   // cạnh dài tối đa (px) — đủ nét để soi mặt, giảm mạnh dung lượng
+const PHOTO_TARGET_KB = 110; // mục tiêu dung lượng ảnh sau nén
 
 // Tải danh sách nhân viên từ Google Sheet
 var empDeptMap = {}; // luu bo phan cua tung nhan vien
@@ -286,9 +290,6 @@ function getDeviceInfo() {
 
 // ============================================================
 // XÁC THỰC SINH TRẮC HỌC (WebAuthn - Face ID / Vân tay)
-// Mỗi nhân viên đăng ký 1 lần trên đúng máy của họ. Từ đó mỗi lần
-// gửi check-in bắt buộc phải Face ID/vân tay thành công trên đúng
-// máy đã đăng ký thì mới gửi được -> không ai bấm giùm ai được nữa.
 // ============================================================
 function bufToBase64(buf) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -352,7 +353,7 @@ async function registerBiometric(name) {
 
 async function verifyBiometric(name) {
   const credIdB64 = getRegisteredCredId(name);
-  if (!credIdB64) return null; // chưa đăng ký
+  if (!credIdB64) return null;
   try {
     const challenge = crypto.getRandomValues(new Uint8Array(32));
     const assertion = await navigator.credentials.get({
@@ -369,9 +370,8 @@ async function verifyBiometric(name) {
   }
 }
 
-// Chặn trước khi cho gửi: bắt buộc Face ID/vân tay đúng máy đã đăng ký
 async function handleBiometricGate(name) {
-  if (!window.PublicKeyCredential) return true; // máy không hỗ trợ -> bỏ qua, không chặn
+  if (!window.PublicKeyCredential) return true;
   const credId = getRegisteredCredId(name);
   if (!credId) {
     toast('⚠ ' + name + ' chưa đăng ký Face ID/vân tay trên máy này. Vui lòng đăng ký trước khi gửi.', '#BA7517');
@@ -423,7 +423,7 @@ function getLocation() {
 }
 
 // Mở camera chụp realtime (không cho chọn ảnh có sẵn)
-let currentFacingMode = 'user'; // mặc định camera trước (selfie) để xác nhận đúng người check-in
+let currentFacingMode = 'user';
 
 async function startCamera() {
   const zone = document.getElementById('upload-zone');
@@ -442,7 +442,6 @@ async function startCamera() {
   }
 }
 
-// Đổi qua lại camera trước (selfie) / camera sau
 async function switchCamera() {
   currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
   stopCamera();
@@ -453,24 +452,45 @@ function stopCamera() {
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
 }
 
+// ==== Nén ảnh lặp: giảm dần quality tới khi đạt mục tiêu dung lượng (tối đa 4 lần thử) ====
+function compressToTarget(canvas, quality, tries, cb) {
+  canvas.toBlob(function(blob) {
+    if (!blob) { cb(null, quality); return; }
+    const sizeKB = blob.size / 1024;
+    if (sizeKB <= PHOTO_TARGET_KB || tries >= 4 || quality <= 0.35) {
+      cb(blob, quality);
+    } else {
+      compressToTarget(canvas, quality - 0.15, tries + 1, cb);
+    }
+  }, 'image/jpeg', quality);
+}
+
 function capturePhoto() {
   const video = document.getElementById('cam-video');
   const canvas = document.getElementById('cam-canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  canvas.toBlob(blob => {
+
+  // Resize về tối đa PHOTO_MAX_DIM cạnh dài trước khi nén -> giảm mạnh dung lượng gốc
+  let w = video.videoWidth, h = video.videoHeight;
+  if (w >= h && w > PHOTO_MAX_DIM) { h = Math.round(h * PHOTO_MAX_DIM / w); w = PHOTO_MAX_DIM; }
+  else if (h > w && h > PHOTO_MAX_DIM) { w = Math.round(w * PHOTO_MAX_DIM / h); h = PHOTO_MAX_DIM; }
+
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+
+  compressToTarget(canvas, 0.7, 0, function(blob, usedQuality) {
     imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
-    captureTimestamp = Date.now(); // ghi lại thời điểm chụp -> chặn gửi trễ
+    captureTimestamp = Date.now();
     const zone = document.getElementById('upload-zone');
     zone.className = 'upload-zone has-img';
     zone.style.display = 'block';
-    zone.innerHTML = '<img src="' + canvas.toDataURL('image/jpeg') + '" alt="Ảnh check-in">';
+    zone.innerHTML = '<img src="' + canvas.toDataURL('image/jpeg', usedQuality) + '" alt="Ảnh check-in">'
+      + '<div style="font-size:11px;color:#0F6E56;text-align:center;padding:5px 0;background:#f2fbf8;">📦 ' + Math.round(blob.size/1024) + ' KB — sẵn sàng gửi nhanh</div>';
     video.style.display = 'none';
     document.getElementById('cam-btn-row').style.display = 'none';
     document.getElementById('cam-retake-row').style.display = 'flex';
     stopCamera();
-  }, 'image/jpeg', 0.85);
+  });
 }
 
 // Toast
@@ -489,14 +509,12 @@ async function handleSubmit() {
   if (!locData) return toast('⚠ Vui lòng lấy vị trí GPS trước','#BA7517');
   if (!imgFile) return toast('⚠ Vui lòng chọn ảnh check-in','#BA7517');
 
-  // Chặn ảnh chụp từ lâu rồi mới bấm gửi (vd chụp tối hôm trước, sáng hôm sau mới gửi)
   if (!captureTimestamp || (Date.now() - captureTimestamp) > MAX_CAPTURE_TO_SUBMIT_MS) {
     toast('⚠ Ảnh chụp đã quá lâu. Vui lòng chụp lại ảnh mới rồi gửi ngay.', '#BA7517');
     resetPhotoOnly();
     return;
   }
 
-  // Bắt buộc xác thực Face ID/vân tay đúng máy đã đăng ký trước khi gửi
   const bioOk = await handleBiometricGate(emp);
   if (!bioOk) return;
 
@@ -518,6 +536,7 @@ async function handleSubmit() {
     datetime: submitTime.toLocaleString('vi-VN'),
     date: submitTime.toLocaleDateString('vi-VN'),
     time: submitTime.toLocaleTimeString('vi-VN'),
+    clientEpochMs: Date.now(), // dùng để server đối chiếu lệch giờ máy (chống chỉnh giờ gian lận)
     lat: locData.lat,
     lng: locData.lng,
     accuracy: locData.acc,
@@ -531,17 +550,28 @@ async function handleSubmit() {
   };
 
   try {
-    await fetch(APPS_SCRIPT_URL, {
+    // Dùng mode 'cors' + Content-Type 'text/plain' (tránh preflight OPTIONS mà Apps Script không hỗ trợ)
+    // để có thể ĐỌC được phản hồi thật từ server (trước đây dùng no-cors nên luôn báo "thành công"
+    // kể cả khi server từ chối, ví dụ thiết bị đã khoá cho người khác).
+    const resp = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-    document.getElementById('success-detail').textContent =
-      emp + ' — ' + submitTime.toLocaleString('vi-VN');
-    document.getElementById('success-overlay').className = 'success-overlay open';
+    const result = await resp.json();
+
+    if (result.success) {
+      document.getElementById('success-detail').textContent =
+        emp + ' — ' + submitTime.toLocaleString('vi-VN');
+      document.getElementById('success-overlay').className = 'success-overlay open';
+    } else if (result.code === 'DEVICE_LOCKED') {
+      toast('🚫 ' + result.message, '#E24B4A');
+    } else {
+      toast('❌ ' + (result.message || 'Gửi thất bại, vui lòng thử lại.'), '#E24B4A');
+    }
   } catch(err) {
-    toast('❌ Lỗi kết nối. Kiểm tra lại URL Script.','#E24B4A');
+    toast('❌ Lỗi kết nối. Kiểm tra lại URL Script hoặc mạng.','#E24B4A');
   }
 
   btn.disabled = false;
@@ -559,7 +589,6 @@ function resetForm() {
   locData = null;
 }
 
-// Chỉ reset lại phần ảnh (dùng khi ảnh chụp quá lâu chưa gửi), giữ nguyên tên/GPS đã chọn
 function resetPhotoOnly() {
   const zone = document.getElementById('upload-zone');
   zone.className = 'upload-zone';
