@@ -48,7 +48,7 @@
   .upload-ico{font-size:36px;color:#ccc;}
   .upload-text{font-size:14px;color:#888;margin-top:8px;}
   .upload-hint{font-size:12px;color:#bbb;margin-top:4px;}
-  #cam-video{width:100%;border-radius:8px;background:#000;display:block;filter:brightness(1.08) contrast(1.08) saturate(1.08);}
+  #cam-video{width:100%;border-radius:8px;background:#000;display:block;}
   #cam-video.mirror{transform:scaleX(-1);}
   .cam-btn-row{display:flex;gap:8px;margin-top:8px;}
   .cam-btn-row button{flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
@@ -264,59 +264,7 @@ document.addEventListener('click', function(e) {
   }
 });
 let locData = null, imgFile = null, submitTime = null, camStream = null, captureTimestamp = null;
-// GHI CHU: MAX_CAPTURE_TO_SUBMIT_MS o client chi de canh bao SOM cho nhan vien (UX).
-// Nguong CHAN THAT SU nam o server (Code.gs), dung gio server that -> khong the gia mao.
-const MAX_CAPTURE_TO_SUBMIT_MS = 90 * 1000;
-
-// B+D: gio server that + GPS luc chup, lay ngam khi bam nut "Chup anh", khong lam phien nhan vien
-let captureServerTime = null;
-let captureGps = null;
-
-// Lay gio THAT tu server Google (khong dung gio dat tren dien thoai nhan vien)
-async function getServerTime() {
-  try {
-    const res = await fetch(APPS_SCRIPT_URL + '?action=time', { method: 'GET', mode: 'cors' });
-    const data = await res.json();
-    return data.serverTime || null;
-  } catch (err) {
-    return null;
-  }
-}
-
-// Lay GPS "am tham" (khong doi UI, khong bao loi ra ngoai) de doi chieu voi GPS luc gui
-function getSilentPosition() {
-  return new Promise(resolve => {
-    if (!navigator.geolocation) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  });
-}
-
-// Sinh 1 ma yeu cau rieng cho MOI LAN gui check-in (khac voi deviceId la ma co dinh cua may)
-function genRequestId() {
-  return 'req-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
-}
-
-// Hoi lai KET QUA THAT cua 1 lan gui, bang GET (doc duoc phan hoi binh thuong,
-// khac voi POST dung no-cors khong doc duoc). Thu lai vai lan vi server
-// co the mat 1-2 giay de xu ly xong va luu ket qua vao cache.
-async function pollCheckinResult(requestId, maxTries) {
-  for (let i = 0; i < maxTries; i++) {
-    // TOI UU TOC DO: giam thoi gian cho giua moi lan hoi tu 1000ms xuong 400ms.
-    // Vi luc goi ham nay, POST da hoan tat xong xuoi (fetch da await xong),
-    // nen ket qua THUONG DA CO SAN ngay tu lan hoi dau tien - khong can cho lau.
-    await new Promise(r => setTimeout(r, 400));
-    try {
-      const res = await fetch(APPS_SCRIPT_URL + '?action=status&id=' + encodeURIComponent(requestId), { method: 'GET', mode: 'cors' });
-      const data = await res.json();
-      if (data.success !== null) return data; // da co ket qua that (thanh cong hoac bi tu choi)
-    } catch (err) { /* loi mang tam thoi, thu lai vong sau */ }
-  }
-  return null; // qua so lan thu ma van chua co ket qua -> khong chac chan
-}
+const MAX_CAPTURE_TO_SUBMIT_MS = 90 * 1000; // ảnh chụp quá 90 giây chưa gửi -> bắt chụp lại
 
 // Thiết bị: sinh 1 mã cố định lưu trong máy để phát hiện 1 máy check-in cho nhiều người
 function getDeviceId() {
@@ -508,28 +456,12 @@ function stopCamera() {
 function capturePhoto() {
   const video = document.getElementById('cam-video');
   const canvas = document.getElementById('cam-canvas');
-
-  // TOI UU TOC DO: gioi han chieu rong toi da 1280px thay vi giu nguyen
-  // do phan giai goc cua camera (thuong 3000-4000px, nang 3-8MB/anh).
-  // Anh 1280px van du net de nhan dien dung nguoi bang mat thuong, nhung
-  // dung luong giam con khoang 200-500KB -> truyen mang + luu Drive nhanh
-  // hon dang ke, day la nguyen nhan chinh khien check-in cam giac lau.
-  const MAX_WIDTH = 1280;
-  const scale = Math.min(1, MAX_WIDTH / video.videoWidth);
-  canvas.width = Math.round(video.videoWidth * scale);
-  canvas.height = Math.round(video.videoHeight * scale);
-
-  const ctx = canvas.getContext('2d');
-  // Chinh anh nhe cho de nhin hon: tang sang/tuong phan/mau sac vua phai.
-  // CHU Y: chi chinh o muc "tu nhien hoa" (khong lam min da / bien dang khuon mat)
-  // vi anh nay dung de XAC NHAN DUNG NGUOI, chinh qua tay se kho nhan dien that.
-  ctx.filter = 'brightness(1.08) contrast(1.08) saturate(1.08)';
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  // Giam nhe chat luong nen JPEG (0.85 -> 0.75) - anh van ro, dung luong giam them
-  canvas.toBlob(async blob => {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(blob => {
     imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
-    captureTimestamp = Date.now(); // ghi lại thời điểm chụp (giờ máy) -> chỉ dùng cảnh báo sớm phía UI
-
+    captureTimestamp = Date.now(); // ghi lại thời điểm chụp -> chặn gửi trễ
     const zone = document.getElementById('upload-zone');
     zone.className = 'upload-zone has-img';
     zone.style.display = 'block';
@@ -538,12 +470,7 @@ function capturePhoto() {
     document.getElementById('cam-btn-row').style.display = 'none';
     document.getElementById('cam-retake-row').style.display = 'flex';
     stopCamera();
-
-    // B+D: lay ngam gio server that + GPS ngay luc chup, khong can nhan vien thao tac gi them
-    const [srvTime, gps] = await Promise.all([getServerTime(), getSilentPosition()]);
-    captureServerTime = srvTime;
-    captureGps = gps;
-  }, 'image/jpeg', 0.75);
+  }, 'image/jpeg', 0.85);
 }
 
 // Toast
@@ -562,8 +489,7 @@ async function handleSubmit() {
   if (!locData) return toast('⚠ Vui lòng lấy vị trí GPS trước','#BA7517');
   if (!imgFile) return toast('⚠ Vui lòng chọn ảnh check-in','#BA7517');
 
-  // Canh bao SOM phia client (dung gio may, chi de UX phan hoi nhanh).
-  // Chan THAT SU (khong the gia mao) nam o server, dung gio server that - xem Code.gs.
+  // Chặn ảnh chụp từ lâu rồi mới bấm gửi (vd chụp tối hôm trước, sáng hôm sau mới gửi)
   if (!captureTimestamp || (Date.now() - captureTimestamp) > MAX_CAPTURE_TO_SUBMIT_MS) {
     toast('⚠ Ảnh chụp đã quá lâu. Vui lòng chụp lại ảnh mới rồi gửi ngay.', '#BA7517');
     resetPhotoOnly();
@@ -601,49 +527,19 @@ async function handleSubmit() {
     deviceId: getDeviceInfo().deviceId,
     userAgent: getDeviceInfo().userAgent,
     screenRes: getDeviceInfo().screen,
-    bioVerified: (window.PublicKeyCredential && getRegisteredCredId(emp)) ? 'Co' : 'Khong',
-    // B) gio server that luc chup anh - server se doi chieu, khong dung duoc gio may de gia mao
-    captureServerTime: captureServerTime,
-    // D) GPS luc chup anh - server se so khop voi lat/lng luc gui de phat hien lech bat thuong
-    captureLat: captureGps ? captureGps.lat : null,
-    captureLng: captureGps ? captureGps.lng : null,
-    // Ma rieng cho lan gui nay - dung de hoi lai ket qua that qua GET (xem pollCheckinResult)
-    requestId: genRequestId()
+    bioVerified: (window.PublicKeyCredential && getRegisteredCredId(emp)) ? 'Co' : 'Khong'
   };
 
   try {
-    // QUAN TRONG: van dung mode 'no-cors' de GUI di chac chan khong bi loi CORS chan.
-    // Khong con dua vao response cua chinh POST nay nua (vi doc khong duoc) - thay vao do,
-    // ngay sau khi gui xong se GOI RIENG 1 request GET (o duoi) de hoi lai KET QUA THAT.
-    btn.innerHTML = '<span class="spinning">⏳</span> Đang xác nhận với máy chủ...';
     await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
-    // Hoi lai ket qua THAT qua GET (toi da 6 lan, moi lan cach 1 giay = doi toi 6 giay)
-    const result = await pollCheckinResult(payload.requestId, 10);
-
-    if (result === null) {
-      // Qua 6 giay van chua co ket qua ro rang - co the mang cham, nhung du lieu
-      // rat co the da duoc ghi (chi la chua kip doc lai). Bao trung lap de anh tu kiem tra.
-      toast('⚠ Không xác nhận được kết quả từ máy chủ. Vui lòng kiểm tra lại trên Google Sheet trước khi gửi lại.', '#BA7517');
-    } else if (result.success === false) {
-      // Server TU CHOI that su (vd anh qua han 2 phut) - KHONG duoc bao thanh cong
-      toast('❌ ' + (result.message || 'Bị máy chủ từ chối.'), '#E24B4A');
-      resetPhotoOnly();
-      btn.disabled = false;
-      btn.innerHTML = '📤 Gửi check-in';
-      return;
-    } else {
-      // Server XAC NHAN thanh cong that su
-      document.getElementById('success-detail').textContent =
-        emp + ' — ' + submitTime.toLocaleString('vi-VN')
-        + (result.warning ? ('\n⚠ ' + result.warning) : '');
-      document.getElementById('success-overlay').className = 'success-overlay open';
-    }
+    document.getElementById('success-detail').textContent =
+      emp + ' — ' + submitTime.toLocaleString('vi-VN');
+    document.getElementById('success-overlay').className = 'success-overlay open';
   } catch(err) {
     toast('❌ Lỗi kết nối. Kiểm tra lại URL Script.','#E24B4A');
   }
@@ -675,8 +571,6 @@ function resetPhotoOnly() {
   document.getElementById('cam-retake-row').style.display = 'none';
   imgFile = null;
   captureTimestamp = null;
-  captureServerTime = null;
-  captureGps = null;
 }
 
 </script>
