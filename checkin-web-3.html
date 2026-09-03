@@ -141,7 +141,7 @@
     <div class="upload-zone" id="upload-zone" onclick="startCamera()">
       <div class="upload-ico">📸</div>
       <div class="upload-text">Nhấn để mở camera</div>
-      <div class="upload-hint">Chỉ chụp realtime — không chọn được ảnh có sẵn</div>
+      <div class="upload-hint">Chỉ chụp realtime</div>
     </div>
     <video id="cam-video" style="display:none" autoplay playsinline muted></video>
     <canvas id="cam-canvas" style="display:none"></canvas>
@@ -155,7 +155,7 @@
   </div>
 
   <div class="note">
-    ℹ️ <span>Tên, vị trí GPS, thời gian thực tế, thiết bị và ảnh chụp trực tiếp sẽ được ghi tự động vào Google Sheet. Hệ thống <b>không chấp nhận ảnh chọn từ thư viện</b> — chỉ chụp realtime tại thời điểm check-in. Ảnh được tự động nén nhẹ để gửi nhanh hơn.</span>
+    ℹ️ <span>Tên, vị trí GPS, thời gian thực tế, thiết bị và ảnh chụp trực tiếp sẽ được ghi tự động vào hệ thống lưu trữ. Ảnh được tự động giảm tải dung lượng để gửi nhanh hơn.</span>
   </div>
 
   <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
@@ -170,7 +170,7 @@
 <div class="success-overlay" id="success-overlay">
   <div class="success-box">
     <div class="success-icon">✅</div>
-    <h2>Check-in thành công!</h2>
+    <h2>Xin cảm ơn. Thành công!</h2>
     <p id="success-detail"></p>
     <button onclick="resetForm()">Đóng</button>
   </div>
@@ -208,7 +208,7 @@ async function loadEmployees() {
       input.placeholder = '⚠ Không tải được danh sách';
     }
   } catch(err) {
-    input.placeholder = '⚠ Lỗi kết nối Sheet';
+    input.placeholder = '⚠ Lỗi kết nối - vui lòng tải lại trang';
   }
 }
 
