@@ -83,7 +83,6 @@
 <body>
 
 <!-- SPLASH: man hinh vao dau tien, giup nhan vien tu reload trang -->
-<!-- moi khi mo app tu tab cu / homescreen icon bi ket, tranh treo o "Dang tai danh sach..." -->
 <div class="splash-overlay" id="splash-overlay">
   <div class="splash-box">
     <div class="splash-logo">🚌</div>
@@ -186,7 +185,8 @@
     <h2>Thành công. Xin cảm ơn!</h2>
     <p id="success-detail"></p>
     <div class="photo-status" id="photo-status">📸 Đang lưu ảnh...</div>
-    <button onclick="resetForm()">Đóng</button>
+    <button id="success-close-btn" style="display:none" onclick="resetForm()">Đóng</button>
+    <div id="success-wait-hint" style="font-size:11px;color:#BA7517;margin-top:8px;">⏳ Vui lòng đợi vài giây để ảnh lưu xong trước khi tắt app</div>
   </div>
 </div>
 
@@ -205,9 +205,8 @@ const PHOTO_TARGET_KB = 110;
 
 // ==== SPLASH: bấm nút sẽ reload thật sự trang, tránh treo o "dang tai..." ====
 // Khong dung sessionStorage (chi mat khi dong han tab) ma dung localStorage + moc thoi gian:
-// neu qua SPLASH_MAX_IDLE_MINUTES ke tu lan reload gan nhat (vd nhan vien mo app tu 5h55 sang,
-// de chay nen ca ngay, 14h30 chieu quay lai) thi van bat hien splash lai, KHONG tin vao trang
-// dang mo san trong bo nho -> tranh tinh trang treo "dang tai danh sach..." do cache/session cu.
+// neu qua SPLASH_MAX_IDLE_MINUTES ke tu lan reload gan nhat thi van bat hien splash lai,
+// KHONG tin vao trang dang mo san trong bo nho -> tranh treo "dang tai danh sach..." do cache/session cu.
 const SPLASH_MAX_IDLE_MINUTES = 30;
 
 function startApp() {
@@ -219,11 +218,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const lastReload = Number(localStorage.getItem('tt_last_reload') || 0);
   const idleMinutes = (Date.now() - lastReload) / 60000;
   if (lastReload > 0 && idleMinutes < SPLASH_MAX_IDLE_MINUTES) {
-    // Vua reload gan day (vd nhan vien bam nut xong, trang tu tai lai) -> vao thang, khong hien splash
     document.getElementById('splash-overlay').classList.add('hide');
   }
-  // Nguoc lai (lan dau mo, hoac da qua 30 phut khong hoat dong) -> giu splash hien ra,
-  // bat nhan vien bam nut de dam bao mot lan tai lai sach truoc khi check-in.
 });
 
 // Tải danh sách nhân viên từ Google Sheet
@@ -518,9 +514,25 @@ function toast(msg, color) {
   setTimeout(() => t.className = 'toast', 3000);
 }
 
-// ==== Gửi ảnh ở chế độ NỀN, không bắt nhân viên phải chờ ====
+// ==== Gửi ảnh ở chế độ NỀN, nhưng giữ nhân viên lại vài giây thật sự cần thiết ====
+// (khong phai 45s nhu truoc) de tranh iOS/Safari treo/huy request khi ho tat app qua som.
+// Neu mang qua yeu (>10s van chua xong), tu dong mo nut Dong kem canh bao, khong khoa vo han.
 function uploadPhotoInBackground(rowIndex, empName, fileToUpload) {
   document.getElementById('photo-status').textContent = '📸 Đang lưu ảnh...';
+  document.getElementById('success-close-btn').style.display = 'none';
+  document.getElementById('success-wait-hint').style.display = 'block';
+
+  let done = false;
+  const finish = (msg) => {
+    if (done) return;
+    done = true;
+    document.getElementById('photo-status').textContent = msg;
+    document.getElementById('success-close-btn').style.display = 'inline-block';
+    document.getElementById('success-wait-hint').style.display = 'none';
+  };
+
+  setTimeout(() => finish('⚠ Ảnh lưu hơi lâu, có thể chưa xong — giờ/GPS vẫn đã ghi nhận'), 10000);
+
   const reader = new FileReader();
   reader.onload = async function(e) {
     const base64 = e.target.result.split(',')[1];
@@ -531,9 +543,9 @@ function uploadPhotoInBackground(rowIndex, empName, fileToUpload) {
         body: JSON.stringify({ action:'uploadPhoto', rowIndex: rowIndex, name: empName, imageBase64: base64, imageName: fileToUpload.name })
       });
       const result = await resp.json();
-      document.getElementById('photo-status').textContent = result.success ? '✅ Đã lưu ảnh' : '⚠ Lưu ảnh thất bại, giờ/GPS vẫn đã ghi nhận';
+      finish(result.success ? '✅ Đã lưu ảnh, có thể tắt app' : '⚠ Lưu ảnh thất bại, giờ/GPS vẫn đã ghi nhận');
     } catch (err) {
-      document.getElementById('photo-status').textContent = '⚠ Lưu ảnh thất bại (mạng yếu), giờ/GPS vẫn đã ghi nhận';
+      finish('⚠ Lưu ảnh thất bại (mạng yếu), giờ/GPS vẫn đã ghi nhận');
     }
   };
   reader.readAsDataURL(fileToUpload);
@@ -561,14 +573,13 @@ async function handleSubmit() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinning">⏳</span> Đang gửi...';
 
-  // BƯỚC 1: gửi dữ liệu chấm công (KHÔNG kèm ảnh) -> nhanh, chỉ vài giây
   const metaPayload = {
     action: 'checkin',
     name: emp, dept: dept, shift: shift,
     datetime: submitTime.toLocaleString('vi-VN'),
     date: submitTime.toLocaleDateString('vi-VN'),
     time: submitTime.toLocaleTimeString('vi-VN'),
-    clientEpochMs: Date.now(), // gan nhu 0 chi phi - dung de doi chieu lech gio may, chong gian lan
+    clientEpochMs: Date.now(),
     lat: locData.lat, lng: locData.lng, accuracy: locData.acc,
     mapsLink: 'https://maps.google.com/?q='+locData.lat+','+locData.lng,
     deviceId: getDeviceInfo().deviceId,
@@ -588,7 +599,6 @@ async function handleSubmit() {
     if (result.success) {
       document.getElementById('success-detail').textContent = emp + ' — ' + submitTime.toLocaleString('vi-VN');
       document.getElementById('success-overlay').className = 'success-overlay open';
-      // BƯỚC 2: gửi ảnh ở chế độ nền, không bắt nhân viên chờ thêm
       uploadPhotoInBackground(result.rowIndex, emp, imgFile);
     } else if (result.code === 'DEVICE_LOCKED') {
       toast('🚫 ' + result.message, '#E24B4A');
@@ -619,7 +629,7 @@ function resetPhotoOnly() {
   zone.className = 'upload-zone';
   zone.style.display = 'block';
   zone.innerHTML =
-    '<div class="upload-ico">📸</div><div class="upload-text">Nhấn để mở camera</div><div class="upload-hint">Chỉ chụp realtime — không chọn được ảnh có sẵn</div>';
+    '<div class="upload-ico">📸</div><div class="upload-text">Nhấn để mở camera</div><div class="upload-hint">Chỉ chụp realtime</div>';
   document.getElementById('cam-video').style.display = 'none';
   document.getElementById('cam-btn-row').style.display = 'none';
   document.getElementById('cam-retake-row').style.display = 'none';
