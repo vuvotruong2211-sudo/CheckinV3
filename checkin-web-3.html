@@ -99,8 +99,8 @@
   <div class="header">
     <div class="logo">🕐</div>
     <div class="header-text">
-      <h1>Chấm công ca làm việc</h1>
-      <div class="sub">Xác nhận có mặt tại văn phòng làm việc</div>
+      <h1>Chấm công online</h1>
+      <div class="sub">Xác nhận có mặt tại văn phòng</div>
     </div>
     <div class="live-clock">
       <div class="clock-time" id="clk-time">--:--:--</div>
@@ -150,11 +150,11 @@
 
   <!-- ẢNH -->
   <div class="card">
-    <div class="card-title">📷 Ảnh xác nhận (chụp trực tiếp)</div>
+    <div class="card-title">📷 Ảnh xác nhận</div>
     <div class="upload-zone" id="upload-zone" onclick="startCamera()">
       <div class="upload-ico">📸</div>
       <div class="upload-text">Nhấn để mở camera</div>
-      <div class="upload-hint">Chỉ chụp realtime — không chọn được ảnh có sẵn</div>
+      <div class="upload-hint">Chỉ chụp realtime</div>
     </div>
     <video id="cam-video" style="display:none" autoplay playsinline muted></video>
     <canvas id="cam-canvas" style="display:none"></canvas>
@@ -168,7 +168,7 @@
   </div>
 
   <div class="note">
-    ℹ️ <span>Tên, vị trí GPS, thời gian thực tế, thiết bị sẽ được ghi nhận ngay khi bấm gửi. Ảnh chụp trực tiếp được lưu lên Drive ngay sau đó ở chế độ nền — không làm bạn phải chờ thêm.</span>
+    ℹ️ <span>Thông tin đang được ghi nhận. Vui lòng không đóng trình duyệt trong 30 giây tới.</span>
   </div>
 
   <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
@@ -183,7 +183,7 @@
 <div class="success-overlay" id="success-overlay">
   <div class="success-box">
     <div class="success-icon">✅</div>
-    <h2>Check-in thành công!</h2>
+    <h2>Thành công. Xin cảm ơn!</h2>
     <p id="success-detail"></p>
     <div class="photo-status" id="photo-status">📸 Đang lưu ảnh...</div>
     <button onclick="resetForm()">Đóng</button>
