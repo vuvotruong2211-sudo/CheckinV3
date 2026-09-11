@@ -166,8 +166,12 @@
     </div>
   </div>
 
+  <div class="note" id="webview-warning" style="display:none;background:#FCEBEB;color:#A32D2D;">
+    ⚠️ <span>Bạn đang mở trang này từ trong app Zalo/Messenger/Facebook — camera, GPS hoặc vân tay có thể không hoạt động đúng. Vui lòng bấm <b>"Mở bằng trình duyệt"</b> (hoặc icon ⋮ góc trên) để mở bằng Chrome/Safari thật.</span>
+  </div>
+
   <div class="note">
-    ℹ️ <span>Thông tin đang được ghi nhận. Vui lòng không đóng trình duyệt trong 30 giây tới.</span>
+    ℹ️ <span>Thông tin đang được ghi nhận. Vui lòng không đóng trình duyệt trong 10 giây tới.</span>
   </div>
 
   <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
@@ -219,6 +223,15 @@ document.addEventListener('DOMContentLoaded', function () {
   const idleMinutes = (Date.now() - lastReload) / 60000;
   if (lastReload > 0 && idleMinutes < SPLASH_MAX_IDLE_MINUTES) {
     document.getElementById('splash-overlay').classList.add('hide');
+  }
+
+  // Phat hien webview noi bo (Zalo/Facebook/Messenger/...) - nguyen nhan pho bien gay loi
+  // camera/GPS/van tay tren Android ma tai lai trang bao nhieu lan cung khong sua duoc,
+  // vi loi nam o chinh trinh duyet webview dang mo, khong phai o trang web.
+  const ua = navigator.userAgent || '';
+  const isInAppBrowser = /FBAN|FBAV|FB_IAB|Instagram|Zalo|Line\/|MicroMessenger|Twitter/i.test(ua);
+  if (isInAppBrowser) {
+    document.getElementById('webview-warning').style.display = 'flex';
   }
 });
 
@@ -326,20 +339,45 @@ function base64ToBuf(b64) { return Uint8Array.from(atob(b64), c => c.charCodeAt(
 function bioKey(name) { return 'tt_webauthn_' + name; }
 function getRegisteredCredId(name) { return localStorage.getItem(bioKey(name)); }
 
-function updateBioCard() {
+// Bao mot promise bang timeout de tranh treo vo han (mot so Android/webview khong bao gio
+// resolve/reject navigator.credentials.create()/.get() neu API khong duoc ho tro day du).
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+}
+
+// KIEM TRA THAT SU phan cung co san sang khong (khong chi kiem tra API co ton tai khong).
+// Rat nhieu may Android tam trung/cu cua tai xe KHONG co van tay hoac chua cai Face Unlock
+// -> truoc day chi check window.PublicKeyCredential (luon true tren Chrome moi) nen van bat
+// dang ky, dang ky luon that bai, roi chan cung nut gui mai mai. Gio kiem tra dung phan cung.
+async function isBiometricHardwareAvailable() {
+  if (!window.PublicKeyCredential || !PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) return false;
+  try {
+    return await withTimeout(PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(), 5000);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function updateBioCard() {
   const emp = selectedEmpName;
   const card = document.getElementById('bio-card');
   const status = document.getElementById('bio-status');
   const btn = document.getElementById('bio-register-btn');
   if (!emp) { card.style.display = 'none'; return; }
   card.style.display = 'block';
-  if (!window.PublicKeyCredential) {
-    status.textContent = '⚠ Điện thoại/trình duyệt này không hỗ trợ Face ID/vân tay qua web. Bỏ qua bước xác thực này, chỉ dùng ảnh + GPS như bình thường.';
-    btn.style.display = 'none';
+  status.textContent = 'Đang kiểm tra thiết bị...';
+  btn.style.display = 'none';
+
+  const available = await isBiometricHardwareAvailable();
+  if (!available) {
+    status.textContent = 'ℹ️ Máy này không có/chưa bật vân tay hoặc Face Unlock — bỏ qua bước này, vẫn chấm công bình thường bằng ảnh + GPS.';
     return;
   }
   if (getRegisteredCredId(emp)) {
-    status.innerHTML = '✅ Đã đăng ký trên máy này. Mỗi lần gửi check-in sẽ yêu cầu Face ID/vân tay để xác nhận đúng người.';
+    status.innerHTML = '✅ Đã đăng ký trên máy này. Hệ thống sẽ tự xác thực thêm mỗi lần gửi check-in (nếu lỗi vẫn gửi được bình thường).';
     btn.style.display = 'none';
   } else {
     status.textContent = 'Chưa đăng ký trên máy này. Đăng ký 1 lần duy nhất, các lần check-in sau không cần đăng ký lại:';
@@ -358,7 +396,7 @@ async function registerBiometric(name) {
   try {
     const challenge = crypto.getRandomValues(new Uint8Array(32));
     const userId = crypto.getRandomValues(new Uint8Array(16));
-    const cred = await navigator.credentials.create({
+    const cred = await withTimeout(navigator.credentials.create({
       publicKey: {
         challenge,
         rp: { name: 'Tuan Tu Express Checkin' },
@@ -367,12 +405,12 @@ async function registerBiometric(name) {
         authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
         timeout: 60000
       }
-    });
+    }), 65000);
     localStorage.setItem(bioKey(name), bufToBase64(cred.rawId));
     toast('✓ Đã đăng ký Face ID/vân tay cho ' + name);
     return true;
   } catch (err) {
-    toast('⚠ Đăng ký thất bại hoặc bị huỷ', '#E24B4A');
+    toast('⚠ Đăng ký thất bại hoặc bị huỷ. Máy không hỗ trợ thì có thể bỏ qua, vẫn chấm công bình thường.', '#E24B4A');
     return false;
   }
 }
@@ -382,34 +420,38 @@ async function verifyBiometric(name) {
   if (!credIdB64) return null;
   try {
     const challenge = crypto.getRandomValues(new Uint8Array(32));
-    const assertion = await navigator.credentials.get({
+    const assertion = await withTimeout(navigator.credentials.get({
       publicKey: {
         challenge,
         allowCredentials: [{ id: base64ToBuf(credIdB64), type: 'public-key' }],
         userVerification: 'required',
         timeout: 60000
       }
-    });
+    }), 12000);
     return !!assertion;
   } catch (err) {
     return false;
   }
 }
 
+// Sinh trac hoc gio la XAC THUC THEM neu co, KHONG CHAN checkin neu that bai/chap chon.
+// Ly do: du lieu dang ky luu trong localStorage co the bi Android tu dong don dep, cam bien
+// doc sai ngau nhien, doi may... -> neu chan cung se gay tinh trang "luc duoc luc khong"
+// khien nhan vien khong cham cong duoc vi ly do ngoai y muon. GPS + khoa thiet bi + anh
+// realtime + gio server da la lop chong gian lan chinh, van tay chi la lop cong them.
 async function handleBiometricGate(name) {
-  if (!window.PublicKeyCredential) return true;
+  const available = await isBiometricHardwareAvailable();
+  if (!available) return { verified: false };
+
   const credId = getRegisteredCredId(name);
-  if (!credId) {
-    toast('⚠ ' + name + ' chưa đăng ký Face ID/vân tay trên máy này. Vui lòng đăng ký trước khi gửi.', '#BA7517');
-    return false;
-  }
+  if (!credId) return { verified: false }; // chua dang ky tren may nay -> van cho gui binh thuong
+
   toast('🔒 Đang xác thực Face ID/vân tay...', '#1D9E75');
   const ok = await verifyBiometric(name);
   if (!ok) {
-    toast('❌ Xác thực thất bại hoặc bị huỷ. Không thể gửi check-in.', '#E24B4A');
-    return false;
+    toast('⚠ Xác thực vân tay không thành công, vẫn gửi check-in bằng ảnh + GPS như bình thường', '#BA7517');
   }
-  return true;
+  return { verified: !!ok };
 }
 
 function tick() {
@@ -486,6 +528,15 @@ function compressToTarget(canvas, quality, tries, cb) {
 function capturePhoto() {
   const video = document.getElementById('cam-video');
   const canvas = document.getElementById('cam-canvas');
+
+  // Mot so may Android load camera cham hon iOS, neu bam "Chup anh" qua nhanh khi video
+  // chua co du lieu (videoWidth=0) se ra anh rong -> imgFile khong duoc gan -> nut gui
+  // cu bao "vui long chup anh" mai du da bam chup. Chan lai va bao nhan vien doi 1 chut.
+  if (!video.videoWidth || !video.videoHeight) {
+    toast('⚠ Camera chưa sẵn sàng, đợi 1-2 giây rồi bấm chụp lại', '#BA7517');
+    return;
+  }
+
   let w = video.videoWidth, h = video.videoHeight;
   if (w >= h && w > PHOTO_MAX_DIM) { h = Math.round(h * PHOTO_MAX_DIM / w); w = PHOTO_MAX_DIM; }
   else if (h > w && h > PHOTO_MAX_DIM) { w = Math.round(w * PHOTO_MAX_DIM / h); h = PHOTO_MAX_DIM; }
@@ -565,8 +616,7 @@ async function handleSubmit() {
     return;
   }
 
-  const bioOk = await handleBiometricGate(emp);
-  if (!bioOk) return;
+  const bioResult = await handleBiometricGate(emp);
 
   submitTime = new Date();
   const btn = document.getElementById('submit-btn');
@@ -585,7 +635,7 @@ async function handleSubmit() {
     deviceId: getDeviceInfo().deviceId,
     userAgent: getDeviceInfo().userAgent,
     screenRes: getDeviceInfo().screen,
-    bioVerified: (window.PublicKeyCredential && getRegisteredCredId(emp)) ? 'Co' : 'Khong'
+    bioVerified: bioResult.verified ? 'Co' : 'Khong'
   };
 
   try {
