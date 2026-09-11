@@ -373,11 +373,11 @@ async function updateBioCard() {
 
   const available = await isBiometricHardwareAvailable();
   if (!available) {
-    status.textContent = 'ℹ️ Máy này không có/chưa bật vân tay hoặc Face Unlock — bỏ qua bước này, vẫn chấm công bình thường bằng ảnh + GPS.';
+    status.textContent = 'ℹ️ Máy này không có/chưa bật vân tay hoặc Face Unlock — LỖI.';
     return;
   }
   if (getRegisteredCredId(emp)) {
-    status.innerHTML = '✅ Đã đăng ký trên máy này. Hệ thống sẽ tự xác thực thêm mỗi lần gửi check-in (nếu lỗi vẫn gửi được bình thường).';
+    status.innerHTML = '✅ Đã đăng ký trên máy này. NẾU LỖI hãy thử lại trình tự chấm công.';
     btn.style.display = 'none';
   } else {
     status.textContent = 'Chưa đăng ký trên máy này. Đăng ký 1 lần duy nhất, các lần check-in sau không cần đăng ký lại:';
