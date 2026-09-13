@@ -373,11 +373,11 @@ async function updateBioCard() {
 
   const available = await isBiometricHardwareAvailable();
   if (!available) {
-    status.textContent = 'ℹ️ Máy này không có/chưa bật vân tay hoặc Face Unlock — LỖI.';
+    status.textContent = 'ℹ️ Máy này không có/chưa bật vân tay hoặc Face Unlock — bỏ qua bước này, vẫn chấm công bình thường bằng ảnh + GPS.';
     return;
   }
   if (getRegisteredCredId(emp)) {
-    status.innerHTML = '✅ Đã đăng ký trên máy này. NẾU LỖI hãy thử lại trình tự chấm công.';
+    status.innerHTML = '✅ Đã đăng ký trên máy này. Hệ thống sẽ tự xác thực thêm mỗi lần gửi check-in (nếu lỗi vẫn gửi được bình thường).';
     btn.style.display = 'none';
   } else {
     status.textContent = 'Chưa đăng ký trên máy này. Đăng ký 1 lần duy nhất, các lần check-in sau không cần đăng ký lại:';
@@ -525,6 +525,14 @@ function compressToTarget(canvas, quality, tries, cb) {
   }, 'image/jpeg', quality);
 }
 
+// Dat ten file anh theo dinh dang "YYYY-MM-DD HH.MM.SS_" giong quy uoc cu, de doc hon
+// so voi so epoch ms truoc day (vd checkin_1789169924109.jpg).
+function formatFileTimestamp(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+    + ' ' + pad(d.getHours()) + '.' + pad(d.getMinutes()) + '.' + pad(d.getSeconds()) + '_';
+}
+
 function capturePhoto() {
   const video = document.getElementById('cam-video');
   const canvas = document.getElementById('cam-canvas');
@@ -544,7 +552,7 @@ function capturePhoto() {
   canvas.getContext('2d').drawImage(video, 0, 0, w, h);
 
   compressToTarget(canvas, 0.7, 0, function(blob, usedQuality) {
-    imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+    imgFile = new File([blob], formatFileTimestamp(new Date()) + '.jpg', { type: 'image/jpeg' });
     captureTimestamp = Date.now();
     const zone = document.getElementById('upload-zone');
     zone.className = 'upload-zone has-img';
