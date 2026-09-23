@@ -1,699 +1,471 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TUẤN TÚ EXPRESS - CHẤM CÔNG </title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:#F1EFE8;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:1.5rem 1rem;}
-  .app{max-width:480px;margin:0 auto;}
-  .splash-overlay{position:fixed;inset:0;background:#1D9E75;display:flex;align-items:center;justify-content:center;z-index:500;}
-  .splash-overlay.hide{display:none;}
-  .splash-box{text-align:center;color:#fff;padding:2rem;}
-  .splash-logo{font-size:56px;margin-bottom:12px;}
-  .splash-box h1{font-size:22px;font-weight:700;letter-spacing:0.04em;}
-  .splash-sub{font-size:13px;opacity:0.85;margin-top:4px;margin-bottom:2.2rem;letter-spacing:0.08em;}
-  .splash-btn{padding:14px 32px;background:#fff;color:#0F6E56;border:none;border-radius:30px;font-size:15px;font-weight:700;cursor:pointer;}
-  .header{background:#fff;border:1px solid #e0ded8;border-radius:14px;padding:1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:14px;}
-  .logo{width:44px;height:44px;border-radius:10px;background:#1D9E75;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;}
-  .header-text{flex:1;min-width:0;}
-  .header-text h1{font-size:17px;font-weight:600;color:#1a1a1a;}
-  .header-text .sub{font-size:12px;color:#888;margin-top:2px;}
-  .live-clock{text-align:right;flex-shrink:0;}
-  .clock-time{font-size:22px;font-weight:600;color:#1D9E75;line-height:1;font-variant-numeric:tabular-nums;}
-  .clock-date{font-size:11px;color:#999;margin-top:3px;}
-  .clock-day{font-size:11px;color:#666;margin-top:1px;}
-  .card{background:#fff;border:1px solid #e0ded8;border-radius:14px;padding:1.25rem;margin-bottom:1rem;}
-  .card-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
-  label{font-size:13px;color:#555;display:block;margin-bottom:5px;}
-  select,input[type=text]{width:100%;padding:9px 12px;font-size:14px;border:1px solid #ddd;border-radius:8px;background:#f9f9f7;color:#1a1a1a;outline:none;}
-  select:focus,input:focus{border-color:#1D9E75;}
-  .emp-search-wrap{position:relative;}
-  .emp-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;max-height:220px;overflow-y:auto;z-index:50;box-shadow:0 6px 18px rgba(0,0,0,0.08);}
-  .emp-dropdown.open{display:block;}
-  .emp-opt{padding:10px 12px;font-size:14px;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-  .emp-opt:hover,.emp-opt.hl{background:#E1F5EE;}
-  .emp-opt .dept-ico{flex-shrink:0;}
-  .emp-empty{padding:10px 12px;font-size:13px;color:#999;}
-  .emp-selected-tag{display:none;align-items:center;justify-content:space-between;gap:8px;background:#E1F5EE;border:1px solid #1D9E75;border-radius:8px;padding:9px 12px;margin-top:6px;font-size:14px;color:#0F6E56;font-weight:600;}
-  .emp-selected-tag.show{display:flex;}
-  .emp-selected-tag .clear-emp{cursor:pointer;color:#0F6E56;font-weight:400;font-size:12px;background:none;border:none;text-decoration:underline;}
-  .loc-box{background:#f9f9f7;border-radius:8px;padding:10px 14px;font-size:13px;color:#666;display:flex;align-items:center;gap:8px;cursor:pointer;border:1px solid #ddd;}
-  .loc-box:hover{border-color:#1D9E75;}
-  .loc-box.active{border-color:#1D9E75;color:#0F6E56;background:#E1F5EE;}
-  .loc-box.err{border-color:#E24B4A;color:#A32D2D;background:#FCEBEB;}
-  .badge{font-size:11px;padding:2px 8px;border-radius:20px;background:#E1F5EE;color:#0F6E56;margin-left:auto;flex-shrink:0;}
-  .info-box{background:#f9f9f7;border-radius:8px;padding:10px 14px;margin-top:10px;}
-  .info-label{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:0.05em;}
-  .info-val{font-size:15px;font-weight:600;color:#1a1a1a;margin-top:2px;}
-  .shift-select{border:none;background:transparent;padding:0;font-size:15px;font-weight:600;color:#1a1a1a;width:100%;margin-top:4px;outline:none;}
-  .upload-zone{border:1.5px dashed #ccc;border-radius:8px;padding:2rem 1rem;text-align:center;cursor:pointer;}
-  .upload-zone:hover{border-color:#1D9E75;}
-  .upload-zone.has-img{border-style:solid;border-color:#1D9E75;padding:0;overflow:hidden;}
-  .upload-zone img{width:100%;height:200px;object-fit:cover;border-radius:7px 7px 0 0;display:block;}
-  .upload-ico{font-size:36px;color:#ccc;}
-  .upload-text{font-size:14px;color:#888;margin-top:8px;}
-  .upload-hint{font-size:12px;color:#bbb;margin-top:4px;}
-  #cam-video{width:100%;border-radius:8px;background:#000;display:block;}
-  #cam-video.mirror{transform:scaleX(-1);}
-  .cam-btn-row{display:flex;gap:8px;margin-top:8px;}
-  .cam-btn-row button{flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
-  .cam-btn-row .shot{background:#1D9E75;color:#fff;}
-  .cam-btn-row .retake{background:#f9f9f7;color:#1a1a1a;border:1px solid #ddd;}
-  .submit-btn{width:100%;padding:13px;background:#1D9E75;color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:0.25rem;display:flex;align-items:center;justify-content:center;gap:8px;}
-  .submit-btn:disabled{opacity:0.5;cursor:not-allowed;}
-  .submit-btn:hover:not(:disabled){background:#0F6E56;}
-  .note{background:#f9f9f7;border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#888;display:flex;align-items:flex-start;gap:8px;}
-  .toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;}
-  .toast{background:#1D9E75;color:white;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;}
-  .toast.show{opacity:1;}
-  .success-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:300;}
-  .success-overlay.open{display:flex;}
-  .success-box{background:#fff;border-radius:16px;padding:2rem;width:300px;text-align:center;}
-  .success-icon{font-size:48px;margin-bottom:1rem;}
-  .success-box h2{font-size:18px;font-weight:600;color:#1D9E75;margin-bottom:0.5rem;}
-  .success-box p{font-size:13px;color:#888;}
-  .success-box .photo-status{font-size:12px;color:#999;margin-top:10px;}
-  .success-box button{margin-top:1.25rem;padding:10px 24px;background:#1D9E75;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-  .spinning{animation:spin 1s linear infinite;display:inline-block;}
-</style>
-</head>
-<body>
+var SHEET_NAME = "Check-in";
+var EMPLOYEE_SHEET_NAME = "Danh sach nhan vien";
+var DEVICE_LOCK_SHEET_NAME = "Khoa thiet bi";
+var DRIVE_FOLDER_NAME = "Anh Check-in Nhan Vien";
+var MAX_RADIUS_METERS = 50;
+var SPREADSHEET_ID = "1A9qGfBJZwxU2X1QaMD3Mv29RnwBg0ZndZqyARfNSNKU";
+var ALLOWED_LOCATIONS = [
+   { name: "VP LHP", lat: 10.763236, lng: 106.675829 },
+   { name: "VP Go Dua", lat: 10.871755, lng: 106.732950 },
+   { name: "VP Ba Diem", lat: 10.833322, lng: 106.605420 },
+   { name: "VP Tan Thang", lat: 10.799311, lng: 106.613764 },
+   { name: "VP Binh Long", lat: 10.793609, lng: 106.615356 },
+   { name: "VP Da Lat ", lat: 11.941777 , lng: 108.456244 },
+   { name: "VP Thach Tru", lat: 14.884596, lng: 108.921526  },
+   { name: "VP Duc Pho", lat: 14.806417, lng: 108.9580088  },
+   { name: "VP BX QN", lat: 15.108685, lng:108.819089   },
+   { name: "VP Tra Cau", lat: 14.846899, lng: 108.939710 },
+   { name: "VP Quang Ngai MOI", lat: 15.117498, lng: 108.824911 },
+   { name: "VP BXQN", lat: 15.10775682, lng: 108.8201147 },
+   { name: "VP Nghia Hoa", lat: 15.095547, lng: 108.884034 },
+];
 
-<!-- SPLASH: man hinh vao dau tien, giup nhan vien tu reload trang -->
-<div class="splash-overlay" id="splash-overlay">
-  <div class="splash-box">
-    <div class="splash-logo">🚌</div>
-    <h1>TUẤN TÚ EXPRESS</h1>
-    <div class="splash-sub">HỆ THỐNG CHẤM CÔNG</div>
-    <button class="splash-btn" onclick="startApp()">▶️ Vào chấm công</button>
-  </div>
-</div>
+// Cot 12 trong sheet Check-in = "Link anh" -> dung de cap nhat sau khi upload nen xong
+var IMG_LINK_COLUMN = 12;
 
-<div class="app">
+// Cache danh sach nhan vien lau hon (6 gio thay vi 3 phut nhu ban truoc): danh sach ten
+// gan nhu khong doi trong ngay, khong can lam moi lien tuc. Muc dich: giam so lan doGet
+// phai thuc su mo Spreadsheet (ton thoi gian + chiem 1 "slot" thuc thi dong thoi cua
+// Apps Script) - dac biet quan trong vao gio cao diem sang som khi nhieu tai xe cung
+// check-in cung luc, luc do doPost (ghi gio + upload anh) da chiem nhieu slot dong thoi
+// roi, khien doGet (tai danh sach) bi xep hang cho toi luot, co khi 3-5 phut.
+var EMPLOYEE_CACHE_SECONDS = 6 * 60 * 60; // 6 tieng
 
-  <!-- HEADER với đồng hồ thực tế -->
-  <div class="header">
-    <div class="logo">🕐</div>
-    <div class="header-text">
-      <h1>Chấm công online</h1>
-      <div class="sub">Xác nhận có mặt tại văn phòng</div>
-    </div>
-    <div class="live-clock">
-      <div class="clock-time" id="clk-time">--:--:--</div>
-      <div class="clock-date" id="clk-date">--/--/----</div>
-      <div class="clock-day" id="clk-day">---</div>
-    </div>
-  </div>
-
-  <!-- NHÂN VIÊN -->
-  <div class="card">
-    <div class="card-title">👤 Nhân viên</div>
-    <label>Họ và tên</label>
-    <div class="emp-search-wrap">
-      <input type="text" id="emp-input" placeholder="⏳ Đang tải danh sách..." autocomplete="off" oninput="onEmpInput()" onfocus="onEmpInput()">
-      <div class="emp-dropdown" id="emp-dropdown"></div>
-    </div>
-    <div class="emp-selected-tag" id="emp-selected-tag">
-      <span id="emp-selected-text"></span>
-      <button class="clear-emp" onclick="clearEmpSelection()">Đổi</button>
-    </div>
-  </div>
-
-  <!-- SINH TRẮC HỌC -->
-  <div class="card" id="bio-card" style="display:none">
-    <div class="card-title">🔒 Xác thực Face ID / Vân tay</div>
-    <div id="bio-status" style="font-size:13px;color:#666;margin-bottom:10px;line-height:1.5;"></div>
-    <button class="submit-btn" id="bio-register-btn" style="display:none;background:#0F6E56" onclick="handleRegisterClick()">👆 Đăng ký ngay trên máy này</button>
-  </div>
-
-  <!-- VỊ TRÍ & CA -->
-  <div class="card">
-    <div class="card-title">📍 Vị trí &amp; ca làm</div>
-    <div class="loc-box" id="loc-box" onclick="getLocation()">
-      <span>🎯</span>
-      <span id="loc-text">Nhấn để lấy vị trí GPS</span>
-      <span class="badge">R ≤ 50m</span>
-    </div>
-    <div class="info-box">
-      <div class="info-label">Ca làm việc</div>
-      <select class="shift-select" id="shift-select">
-        <option value="Sáng (6:00–15:00)">Sáng (6:00–15:00)</option>
-        <option value="Chiều (14:00–23:00)">Chiều (14:00–23:00)</option>
-        <option value="Tối (22:00–6:00)">Tối (22:00–6:00)</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- ẢNH -->
-  <div class="card">
-    <div class="card-title">📷 Ảnh xác nhận</div>
-    <div class="upload-zone" id="upload-zone" onclick="startCamera()">
-      <div class="upload-ico">📸</div>
-      <div class="upload-text">Nhấn để mở camera</div>
-      <div class="upload-hint">Chỉ chụp realtime</div>
-    </div>
-    <video id="cam-video" style="display:none" autoplay playsinline muted></video>
-    <canvas id="cam-canvas" style="display:none"></canvas>
-    <div class="cam-btn-row" id="cam-btn-row" style="display:none">
-      <button class="shot" id="cam-shot-btn" onclick="capturePhoto()">📸 Chụp ảnh</button>
-      <button class="retake" id="cam-switch-btn" onclick="switchCamera()">🤳 Đổi camera</button>
-    </div>
-    <div class="cam-btn-row" id="cam-retake-row" style="display:none">
-      <button class="retake" onclick="startCamera()">🔄 Chụp lại</button>
-    </div>
-  </div>
-
-  <div class="note" id="webview-warning" style="display:none;background:#FCEBEB;color:#A32D2D;">
-    ⚠️ <span>Bạn đang mở trang này từ trong app Zalo/Messenger/Facebook — camera, GPS hoặc vân tay có thể không hoạt động đúng. Vui lòng bấm <b>"Mở bằng trình duyệt"</b> (hoặc icon ⋮ góc trên) để mở bằng Chrome/Safari thật.</span>
-  </div>
-
-  <div class="note">
-    ℹ️ <span>Thông tin đang được ghi nhận. Vui lòng không đóng trình duyệt trong 10 giây tới.</span>
-  </div>
-
-  <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
-    📤 Gửi check-in
-  </button>
-</div>
-
-<!-- TOAST -->
-<div class="toast-wrap"><div class="toast" id="toast"></div></div>
-
-<!-- SUCCESS -->
-<div class="success-overlay" id="success-overlay">
-  <div class="success-box">
-    <div class="success-icon">✅</div>
-    <h2>Thành công. Xin cảm ơn!</h2>
-    <p id="success-detail"></p>
-    <div class="photo-status" id="photo-status">📸 Đang lưu ảnh...</div>
-    <button id="success-close-btn" style="display:none" onclick="resetForm()">Đóng</button>
-    <div id="success-wait-hint" style="font-size:11px;color:#BA7517;margin-top:8px;">⏳ Vui lòng đợi vài giây để ảnh lưu xong trước khi tắt app</div>
-  </div>
-</div>
-
-<script>
-// ============================================================
-// CẤU HÌNH — Dán URL Google Apps Script của bạn vào đây
-// ============================================================
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyWxe6-W51IUHxS6tjVANH4d6zEdbqP0IADbtkg6TrC5g711qoR6N6_1NZBkhBsNA6KHQ/exec";
-// ============================================================
-
-const DAYS = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
-
-// ==== TỐI ƯU ẢNH: resize + nén lặp cho tới khi đạt mục tiêu dung lượng ====
-const PHOTO_MAX_DIM = 800;
-const PHOTO_TARGET_KB = 110;
-
-// ==== SPLASH: bấm nút sẽ reload thật sự trang, tránh treo o "dang tai..." ====
-// Khong dung sessionStorage (chi mat khi dong han tab) ma dung localStorage + moc thoi gian:
-// neu qua SPLASH_MAX_IDLE_MINUTES ke tu lan reload gan nhat thi van bat hien splash lai,
-// KHONG tin vao trang dang mo san trong bo nho -> tranh treo "dang tai danh sach..." do cache/session cu.
-const SPLASH_MAX_IDLE_MINUTES = 30;
-
-function startApp() {
-  localStorage.setItem('tt_last_reload', String(Date.now()));
-  window.location.reload(true);
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  const lastReload = Number(localStorage.getItem('tt_last_reload') || 0);
-  const idleMinutes = (Date.now() - lastReload) / 60000;
-  if (lastReload > 0 && idleMinutes < SPLASH_MAX_IDLE_MINUTES) {
-    document.getElementById('splash-overlay').classList.add('hide');
-  }
-
-  // Phat hien webview noi bo (Zalo/Facebook/Messenger/...) - nguyen nhan pho bien gay loi
-  // camera/GPS/van tay tren Android ma tai lai trang bao nhieu lan cung khong sua duoc,
-  // vi loi nam o chinh trinh duyet webview dang mo, khong phai o trang web.
-  const ua = navigator.userAgent || '';
-  const isInAppBrowser = /FBAN|FBAV|FB_IAB|Instagram|Zalo|Line\/|MicroMessenger|Twitter/i.test(ua);
-  if (isInAppBrowser) {
-    document.getElementById('webview-warning').style.display = 'flex';
-  }
-});
-
-// Tải danh sách nhân viên từ Google Sheet
-var empDeptMap = {};
-var employeeList = [];
-var selectedEmpName = '';
-var hlIndex = -1;
-
-async function loadEmployees() {
-  const input = document.getElementById('emp-input');
+// Tra ve danh sach nhan vien cho web (GET)
+function doGet(e) {
   try {
-    const res = await fetch(APPS_SCRIPT_URL, { method: 'GET', mode: 'cors' });
-    const data = await res.json();
-    if (data.success && data.employees.length > 0) {
-      employeeList = data.employees;
-      employeeList.forEach(emp => { empDeptMap[emp.name] = emp.dept; });
-      input.placeholder = '🔍 Gõ tên để tìm...';
-    } else {
-      input.placeholder = '⚠ Không tải được, bấm nút refresh trình duyệt';
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get('employee_list');
+    if (cached) {
+      return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
     }
-  } catch(err) {
-    input.placeholder = '⚠ Lỗi mạng — bấm refresh trình duyệt';
-  }
-}
-
-function normalizeVi(s) {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g,'d');
-}
-
-function renderEmpDropdown(list) {
-  const dd = document.getElementById('emp-dropdown');
-  hlIndex = -1;
-  if (list.length === 0) {
-    dd.innerHTML = '<div class="emp-empty">Không tìm thấy nhân viên phù hợp</div>';
-    dd.className = 'emp-dropdown open';
-    return;
-  }
-  dd.innerHTML = list.map((emp, i) => {
-    const ico = emp.dept === 'tai xe' ? '🚗' : '🏢';
-    return '<div class="emp-opt" data-name="' + emp.name.replace(/"/g,'&quot;') + '" onclick="selectEmp(this.dataset.name)">'
-      + '<span>' + emp.name + '</span><span class="dept-ico">' + ico + '</span></div>';
-  }).join('');
-  dd.className = 'emp-dropdown open';
-}
-
-function onEmpInput() {
-  const q = normalizeVi(document.getElementById('emp-input').value.trim());
-  const filtered = q === '' ? employeeList : employeeList.filter(emp => normalizeVi(emp.name).includes(q));
-  renderEmpDropdown(filtered);
-}
-
-function selectEmp(name) {
-  selectedEmpName = name;
-  document.getElementById('emp-input').value = '';
-  document.getElementById('emp-dropdown').className = 'emp-dropdown';
-  const dept = empDeptMap[name] || '';
-  const ico = dept === 'tai xe' ? '🚗' : '🏢';
-  document.getElementById('emp-selected-text').textContent = ico + ' ' + name;
-  document.getElementById('emp-selected-tag').classList.add('show');
-  document.getElementById('emp-input').style.display = 'none';
-  updateBioCard();
-}
-
-function clearEmpSelection() {
-  selectedEmpName = '';
-  document.getElementById('emp-selected-tag').classList.remove('show');
-  document.getElementById('emp-input').style.display = 'block';
-  document.getElementById('emp-input').value = '';
-  document.getElementById('emp-input').focus();
-  document.getElementById('bio-card').style.display = 'none';
-}
-
-document.addEventListener('click', function(e) {
-  const wrap = document.querySelector('.emp-search-wrap');
-  if (wrap && !wrap.contains(e.target)) {
-    document.getElementById('emp-dropdown').className = 'emp-dropdown';
-  }
-});
-let locData = null, imgFile = null, submitTime = null, camStream = null, captureTimestamp = null;
-const MAX_CAPTURE_TO_SUBMIT_MS = 90 * 1000;
-
-function getDeviceId() {
-  let id = localStorage.getItem('tt_device_id');
-  if (!id) {
-    id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
-    localStorage.setItem('tt_device_id', id);
-  }
-  return id;
-}
-function getDeviceInfo() {
-  return {
-    deviceId: getDeviceId(),
-    userAgent: navigator.userAgent,
-    platform: navigator.platform || '',
-    screen: screen.width + 'x' + screen.height
-  };
-}
-
-// ============================================================
-// XÁC THỰC SINH TRẮC HỌC (WebAuthn - Face ID / Vân tay)
-// ============================================================
-function bufToBase64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
-function base64ToBuf(b64) { return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
-function bioKey(name) { return 'tt_webauthn_' + name; }
-function getRegisteredCredId(name) { return localStorage.getItem(bioKey(name)); }
-
-// Bao mot promise bang timeout de tranh treo vo han (mot so Android/webview khong bao gio
-// resolve/reject navigator.credentials.create()/.get() neu API khong duoc ho tro day du).
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
-  ]);
-}
-
-// KIEM TRA THAT SU phan cung co san sang khong (khong chi kiem tra API co ton tai khong).
-// Rat nhieu may Android tam trung/cu cua tai xe KHONG co van tay hoac chua cai Face Unlock
-// -> truoc day chi check window.PublicKeyCredential (luon true tren Chrome moi) nen van bat
-// dang ky, dang ky luon that bai, roi chan cung nut gui mai mai. Gio kiem tra dung phan cung.
-async function isBiometricHardwareAvailable() {
-  if (!window.PublicKeyCredential || !PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) return false;
-  try {
-    return await withTimeout(PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(), 5000);
-  } catch (e) {
-    return false;
-  }
-}
-
-async function updateBioCard() {
-  const emp = selectedEmpName;
-  const card = document.getElementById('bio-card');
-  const status = document.getElementById('bio-status');
-  const btn = document.getElementById('bio-register-btn');
-  if (!emp) { card.style.display = 'none'; return; }
-  card.style.display = 'block';
-  status.textContent = 'Đang kiểm tra thiết bị...';
-  btn.style.display = 'none';
-
-  const available = await isBiometricHardwareAvailable();
-  if (!available) {
-    status.textContent = 'ℹ️ Máy này không có/chưa bật vân tay hoặc Face Unlock — bỏ qua bước này, vẫn chấm công bình thường bằng ảnh + GPS.';
-    return;
-  }
-  if (getRegisteredCredId(emp)) {
-    status.innerHTML = '✅ Đã đăng ký trên máy này. Hệ thống sẽ tự xác thực thêm mỗi lần gửi check-in (nếu lỗi vẫn gửi được bình thường).';
-    btn.style.display = 'none';
-  } else {
-    status.textContent = 'Chưa đăng ký trên máy này. Đăng ký 1 lần duy nhất, các lần check-in sau không cần đăng ký lại:';
-    btn.style.display = 'flex';
-  }
-}
-
-async function handleRegisterClick() {
-  const emp = selectedEmpName;
-  if (!emp) return;
-  await registerBiometric(emp);
-  updateBioCard();
-}
-
-async function registerBiometric(name) {
-  try {
-    const challenge = crypto.getRandomValues(new Uint8Array(32));
-    const userId = crypto.getRandomValues(new Uint8Array(16));
-    const cred = await withTimeout(navigator.credentials.create({
-      publicKey: {
-        challenge,
-        rp: { name: 'Tuan Tu Express Checkin' },
-        user: { id: userId, name: name, displayName: name },
-        pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-        authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
-        timeout: 60000
+    var ss = getOrCreateSpreadsheet();
+    var sheet = ss.getSheetByName(EMPLOYEE_SHEET_NAME);
+    if (!sheet) { sheet = createEmployeeSheet(ss); }
+    var lastRow = sheet.getLastRow();
+    var employees = [];
+    if (lastRow >= 2) {
+      var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+      for (var i = 0; i < data.length; i++) {
+        var name = String(data[i][0]).trim();
+        var dept = String(data[i][1]).trim().toLowerCase();
+        if (name !== "") { employees.push({ name: name, dept: dept }); }
       }
-    }), 65000);
-    localStorage.setItem(bioKey(name), bufToBase64(cred.rawId));
-    toast('✓ Đã đăng ký Face ID/vân tay cho ' + name);
-    return true;
-  } catch (err) {
-    toast('⚠ Đăng ký thất bại hoặc bị huỷ. Máy không hỗ trợ thì có thể bỏ qua, vẫn chấm công bình thường.', '#E24B4A');
-    return false;
-  }
-}
-
-async function verifyBiometric(name) {
-  const credIdB64 = getRegisteredCredId(name);
-  if (!credIdB64) return null;
-  try {
-    const challenge = crypto.getRandomValues(new Uint8Array(32));
-    const assertion = await withTimeout(navigator.credentials.get({
-      publicKey: {
-        challenge,
-        allowCredentials: [{ id: base64ToBuf(credIdB64), type: 'public-key' }],
-        userVerification: 'required',
-        timeout: 60000
-      }
-    }), 12000);
-    return !!assertion;
-  } catch (err) {
-    return false;
-  }
-}
-
-// Sinh trac hoc gio la XAC THUC THEM neu co, KHONG CHAN checkin neu that bai/chap chon.
-// Ly do: du lieu dang ky luu trong localStorage co the bi Android tu dong don dep, cam bien
-// doc sai ngau nhien, doi may... -> neu chan cung se gay tinh trang "luc duoc luc khong"
-// khien nhan vien khong cham cong duoc vi ly do ngoai y muon. GPS + khoa thiet bi + anh
-// realtime + gio server da la lop chong gian lan chinh, van tay chi la lop cong them.
-async function handleBiometricGate(name) {
-  const available = await isBiometricHardwareAvailable();
-  if (!available) return { verified: false };
-
-  const credId = getRegisteredCredId(name);
-  if (!credId) return { verified: false }; // chua dang ky tren may nay -> van cho gui binh thuong
-
-  toast('🔒 Đang xác thực Face ID/vân tay...', '#1D9E75');
-  const ok = await verifyBiometric(name);
-  if (!ok) {
-    toast('⚠ Xác thực vân tay không thành công, vẫn gửi check-in bằng ảnh + GPS như bình thường', '#BA7517');
-  }
-  return { verified: !!ok };
-}
-
-function tick() {
-  const now = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  document.getElementById('clk-time').textContent = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
-  document.getElementById('clk-date').textContent = now.toLocaleDateString('vi-VN');
-  document.getElementById('clk-day').textContent = DAYS[now.getDay()];
-}
-tick(); setInterval(tick, 1000);
-loadEmployees();
-
-function getLocation() {
-  const box = document.getElementById('loc-box');
-  const txt = document.getElementById('loc-text');
-  txt.textContent = 'Đang lấy vị trí...';
-  box.className = 'loc-box';
-  if (!navigator.geolocation) {
-    txt.textContent = 'Trình duyệt không hỗ trợ GPS';
-    box.className = 'loc-box err'; return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      locData = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
-      txt.textContent = locData.lat.toFixed(5)+', '+locData.lng.toFixed(5)+' (±'+locData.acc+'m)';
-      box.className = 'loc-box active';
-    },
-    () => { txt.textContent='Không lấy được vị trí. Thử lại?'; box.className='loc-box err'; },
-    { enableHighAccuracy:true, timeout:10000 }
-  );
-}
-
-let currentFacingMode = 'user';
-
-async function startCamera() {
-  const zone = document.getElementById('upload-zone');
-  const video = document.getElementById('cam-video');
-  try {
-    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
-    video.srcObject = camStream;
-    video.classList.toggle('mirror', currentFacingMode === 'user');
-    zone.style.display = 'none';
-    video.style.display = 'block';
-    document.getElementById('cam-btn-row').style.display = 'flex';
-    document.getElementById('cam-retake-row').style.display = 'none';
-    imgFile = null;
-  } catch (err) {
-    toast('⚠ Không mở được camera. Kiểm tra quyền truy cập trình duyệt.', '#E24B4A');
-  }
-}
-
-async function switchCamera() {
-  currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-  stopCamera();
-  await startCamera();
-}
-
-function stopCamera() {
-  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
-}
-
-function compressToTarget(canvas, quality, tries, cb) {
-  canvas.toBlob(function(blob) {
-    if (!blob) { cb(null, quality); return; }
-    const sizeKB = blob.size / 1024;
-    if (sizeKB <= PHOTO_TARGET_KB || tries >= 4 || quality <= 0.35) {
-      cb(blob, quality);
-    } else {
-      compressToTarget(canvas, quality - 0.15, tries + 1, cb);
     }
-  }, 'image/jpeg', quality);
-}
-
-// Dat ten file anh theo dinh dang "YYYY-MM-DD HH.MM.SS_" giong quy uoc cu, de doc hon
-// so voi so epoch ms truoc day (vd checkin_1789169924109.jpg).
-function formatFileTimestamp(d) {
-  const pad = n => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
-    + ' ' + pad(d.getHours()) + '.' + pad(d.getMinutes()) + '.' + pad(d.getSeconds()) + '_';
-}
-
-function capturePhoto() {
-  const video = document.getElementById('cam-video');
-  const canvas = document.getElementById('cam-canvas');
-
-  // Mot so may Android load camera cham hon iOS, neu bam "Chup anh" qua nhanh khi video
-  // chua co du lieu (videoWidth=0) se ra anh rong -> imgFile khong duoc gan -> nut gui
-  // cu bao "vui long chup anh" mai du da bam chup. Chan lai va bao nhan vien doi 1 chut.
-  if (!video.videoWidth || !video.videoHeight) {
-    toast('⚠ Camera chưa sẵn sàng, đợi 1-2 giây rồi bấm chụp lại', '#BA7517');
-    return;
+    var result = JSON.stringify({ success: true, employees: employees });
+    cache.put('employee_list', result, EMPLOYEE_CACHE_SECONDS);
+    return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return jsonOut({ success: false, message: err.toString() });
   }
-
-  let w = video.videoWidth, h = video.videoHeight;
-  if (w >= h && w > PHOTO_MAX_DIM) { h = Math.round(h * PHOTO_MAX_DIM / w); w = PHOTO_MAX_DIM; }
-  else if (h > w && h > PHOTO_MAX_DIM) { w = Math.round(w * PHOTO_MAX_DIM / h); h = PHOTO_MAX_DIM; }
-  canvas.width = w; canvas.height = h;
-  canvas.getContext('2d').drawImage(video, 0, 0, w, h);
-
-  compressToTarget(canvas, 0.7, 0, function(blob, usedQuality) {
-    imgFile = new File([blob], formatFileTimestamp(new Date()) + '.jpg', { type: 'image/jpeg' });
-    captureTimestamp = Date.now();
-    const zone = document.getElementById('upload-zone');
-    zone.className = 'upload-zone has-img';
-    zone.style.display = 'block';
-    zone.innerHTML = '<img src="' + canvas.toDataURL('image/jpeg', usedQuality) + '" alt="Ảnh check-in">'
-      + '<div style="font-size:11px;color:#0F6E56;text-align:center;padding:5px 0;background:#f2fbf8;">📦 ' + Math.round(blob.size/1024) + ' KB — sẵn sàng gửi nhanh</div>';
-    video.style.display = 'none';
-    document.getElementById('cam-btn-row').style.display = 'none';
-    document.getElementById('cam-retake-row').style.display = 'flex';
-    stopCamera();
-  });
 }
 
-function toast(msg, color) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.style.background = color||'#1D9E75';
-  t.className = 'toast show';
-  setTimeout(() => t.className = 'toast', 3000);
+// Chay ham nay 1 lan bat cu khi nao vua sua danh sach nhan vien trong sheet (them/xoa/
+// doi ten), de xoa cache cu ngay lap tuc thay vi phai doi toi 6 tieng moi thay du lieu moi.
+function clearEmployeeCache() {
+  CacheService.getScriptCache().remove('employee_list');
+  Logger.log('Da xoa cache danh sach nhan vien. Lan tai tiep theo se lay du lieu moi nhat.');
 }
 
-// ==== Gửi ảnh ở chế độ NỀN, nhưng giữ nhân viên lại vài giây thật sự cần thiết ====
-// (khong phai 45s nhu truoc) de tranh iOS/Safari treo/huy request khi ho tat app qua som.
-// Neu mang qua yeu (>10s van chua xong), tu dong mo nut Dong kem canh bao, khong khoa vo han.
-function uploadPhotoInBackground(rowIndex, empName, fileToUpload) {
-  document.getElementById('photo-status').textContent = '📸 Đang lưu ảnh...';
-  document.getElementById('success-close-btn').style.display = 'none';
-  document.getElementById('success-wait-hint').style.display = 'block';
+// ============================================================
+// doPost duoc tach lam 2 nhanh theo "action" de rut ngan thoi gian cho cua nhan vien:
+//  - action "checkin"      : ghi nhan gio/GPS/thiet bi NGAY (khong kem anh) -> tra ve nhanh
+//  - action "uploadPhoto"  : nhan anh va luu len Drive o buoc rieng, chay NGAM sau khi
+//                            nhan vien da thay "Check-in thanh cong" tren man hinh.
+// Nho vay toc do checkin ma nhan vien cam nhan duoc chi con phu thuoc vao thao tac
+// ghi 1 dong vao Sheet (rat nhanh), khong con phu thuoc vao toc do upload Drive (von cham).
+// ============================================================
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var action = data.action || 'checkin';
+    var ss = getOrCreateSpreadsheet();
 
-  let done = false;
-  const finish = (msg) => {
-    if (done) return;
-    done = true;
-    document.getElementById('photo-status').textContent = msg;
-    document.getElementById('success-close-btn').style.display = 'inline-block';
-    document.getElementById('success-wait-hint').style.display = 'none';
-  };
+    if (action === 'uploadPhoto') {
+      return handleUploadPhoto(ss, data);
+    }
+    return handleCheckin(ss, data);
+  } catch (err) {
+    return jsonOut({ success: false, message: err.toString() });
+  }
+}
 
-  setTimeout(() => finish('⚠ Ảnh lưu hơi lâu, có thể chưa xong — giờ/GPS vẫn đã ghi nhận'), 10000);
+function handleCheckin(ss, data) {
+  var sheet = getOrCreateSheet(ss);
 
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    const base64 = e.target.result.split(',')[1];
-    try {
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST', mode: 'cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action:'uploadPhoto', rowIndex: rowIndex, name: empName, imageBase64: base64, imageName: fileToUpload.name })
+  // Gio chuan lay theo dong ho server Google, khong theo may nhan vien
+  var serverNow = new Date();
+  var serverDate = Utilities.formatDate(serverNow, "GMT+7", "dd/MM/yyyy");
+  var serverTime = Utilities.formatDate(serverNow, "GMT+7", "HH:mm:ss");
+  var serverDatetime = Utilities.formatDate(serverNow, "GMT+7", "dd/MM/yyyy HH:mm:ss");
+
+  // Khoa thiet bi: 1 dien thoai chi duoc gan cho 1 nhan vien
+  var deviceId = String(data.deviceId || "").trim();
+  if (deviceId) {
+    var lockCheck = checkAndLockDevice(ss, deviceId, data.name);
+    if (!lockCheck.ok) {
+      return jsonOut({
+        success: false,
+        code: "DEVICE_LOCKED",
+        message: "Thiet bi nay da duoc khoa cho nhan vien \"" + lockCheck.lockedName + "\". "
+          + "Neu ban la " + data.name + " va bi nham lan, lien he quan ly de kiem tra/mo khoa trong sheet \"" + DEVICE_LOCK_SHEET_NAME + "\"."
       });
-      const result = await resp.json();
-      finish(result.success ? '✅ Đã lưu ảnh, có thể tắt app' : '⚠ Lưu ảnh thất bại, giờ/GPS vẫn đã ghi nhận');
-    } catch (err) {
-      finish('⚠ Lưu ảnh thất bại (mạng yếu), giờ/GPS vẫn đã ghi nhận');
     }
-  };
-  reader.readAsDataURL(fileToUpload);
-}
-
-async function handleSubmit() {
-  const emp = selectedEmpName;
-  const dept = empDeptMap[emp] || '';
-  const shift = document.getElementById('shift-select').value;
-  if (!emp) return toast('⚠ Vui lòng chọn nhân viên','#BA7517');
-  if (!locData) return toast('⚠ Vui lòng lấy vị trí GPS trước','#BA7517');
-  if (!imgFile) return toast('⚠ Vui lòng chọn ảnh check-in','#BA7517');
-
-  if (!captureTimestamp || (Date.now() - captureTimestamp) > MAX_CAPTURE_TO_SUBMIT_MS) {
-    toast('⚠ Ảnh chụp đã quá lâu. Vui lòng chụp lại ảnh mới rồi gửi ngay.', '#BA7517');
-    resetPhotoOnly();
-    return;
   }
 
-  const bioResult = await handleBiometricGate(emp);
+  var locationStatus = "-";
+  var locationName = "-";
+  var dept = String(data.dept || "").trim().toLowerCase();
 
-  submitTime = new Date();
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinning">⏳</span> Đang gửi...';
+  if (dept === "tai xe") {
+    locationStatus = "Ghi nhan (khong kiem tra)";
+    locationName = "Tai xe luu dong";
+  } else if (ALLOWED_LOCATIONS.length > 0 && data.lat && data.lng) {
+    var check = checkLocation(data.lat, data.lng);
+    locationStatus = check.valid ? "OK - Hop le" : "LOI - Ngoai pham vi";
+    locationName = check.nearestName || "-";
+  } else {
+    locationStatus = "Ghi nhan";
+    locationName = "-";
+  }
 
-  const metaPayload = {
-    action: 'checkin',
-    name: emp, dept: dept, shift: shift,
-    datetime: submitTime.toLocaleString('vi-VN'),
-    date: submitTime.toLocaleDateString('vi-VN'),
-    time: submitTime.toLocaleTimeString('vi-VN'),
-    clientEpochMs: Date.now(),
-    lat: locData.lat, lng: locData.lng, accuracy: locData.acc,
-    mapsLink: 'https://maps.google.com/?q='+locData.lat+','+locData.lng,
-    deviceId: getDeviceInfo().deviceId,
-    userAgent: getDeviceInfo().userAgent,
-    screenRes: getDeviceInfo().screen,
-    bioVerified: bioResult.verified ? 'Co' : 'Khong'
+  var latVal = data.lat ? Number(data.lat) : "-";
+  var lngVal = data.lng ? Number(data.lng) : "-";
+  var accuracyVal = data.accuracy ? ("'±" + data.accuracy + "m") : "-";
+
+  // Doi chieu gio may nhan vien voi gio server -> phat hien nghi ngo chinh gio gian lan.
+  // Chi phi tinh toan gan nhu bang 0 (client gui kem 1 so Date.now()), khong anh huong toc do.
+  var timeDiffSec = "-";
+  var timeFlag = "-";
+  if (data.clientEpochMs) {
+    timeDiffSec = Math.round((serverNow.getTime() - Number(data.clientEpochMs)) / 1000);
+    timeFlag = Math.abs(timeDiffSec) > 300
+      ? "NGHI NGO - gio may lech " + timeDiffSec + "s"
+      : "Binh thuong";
+  }
+
+  sheet.appendRow([
+    data.name || "-",
+    data.dept || "-",
+    serverDate,
+    serverTime,
+    data.shift || "-",
+    latVal,
+    lngVal,
+    accuracyVal,
+    data.mapsLink || "-",
+    locationName,
+    locationStatus,
+    "Dang tai anh...",          // Link anh - se duoc cap nhat khi uploadPhoto hoan tat
+    serverDatetime,
+    data.deviceId || "-",
+    data.userAgent || "-",
+    data.screenRes || "-",
+    data.bioVerified || "Khong",
+    (data.date || "-") + " " + (data.time || "-"),
+    timeDiffSec,
+    timeFlag,
+    data.faceCheck || "Khong ho tro may"
+  ]);
+
+  var lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow, 6, 1, 2).setNumberFormat("0.000000");
+
+  return jsonOut({ success: true, serverDatetime: serverDatetime, rowIndex: lastRow });
+}
+
+function handleUploadPhoto(ss, data) {
+  var sheet = getOrCreateSheet(ss);
+  var rowIndex = Number(data.rowIndex);
+  var imageUrl = "-";
+
+  if (data.imageBase64) {
+    imageUrl = saveImageToDrive(data.imageBase64, data.imageName, data.name);
+  }
+
+  if (rowIndex && rowIndex >= 2 && rowIndex <= sheet.getLastRow()) {
+    sheet.getRange(rowIndex, IMG_LINK_COLUMN).setValue(imageUrl);
+  }
+
+  return jsonOut({ success: true, imageUrl: imageUrl });
+}
+
+// Kiem tra + khoa thiet bi
+function checkAndLockDevice(ss, deviceId, empName) {
+  var sheet = getOrCreateDeviceLockSheet(ss);
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][0]).trim() === deviceId) {
+        var lockedName = String(data[i][1]).trim();
+        if (lockedName === "SHARED") return { ok: true };
+        if (lockedName !== empName) return { ok: false, lockedName: lockedName };
+        return { ok: true };
+      }
+    }
+  }
+  sheet.appendRow([deviceId, empName, new Date().toLocaleString("vi-VN")]);
+  return { ok: true };
+}
+
+function getOrCreateDeviceLockSheet(ss) {
+  var sheet = ss.getSheetByName(DEVICE_LOCK_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(DEVICE_LOCK_SHEET_NAME);
+    var headers = ["Device ID", "Ten nhan vien duoc khoa", "Ngay khoa (lan dau)"];
+    sheet.appendRow(headers);
+    var headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setBackground("#1D9E75");
+    headerRange.setFontColor("#FFFFFF");
+    headerRange.setFontWeight("bold");
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 260);
+    sheet.setColumnWidth(2, 200);
+    sheet.setColumnWidth(3, 180);
+  }
+  return sheet;
+}
+
+function getOrCreateSpreadsheet() {
+  if (SPREADSHEET_ID) {
+    try { return SpreadsheetApp.openById(SPREADSHEET_ID); } catch (err) {}
+  }
+  var files = DriveApp.getFilesByName("Bang Cham Cong Nhan Vien");
+  if (files.hasNext()) { return SpreadsheetApp.open(files.next()); }
+  return SpreadsheetApp.create("Bang Cham Cong Nhan Vien");
+}
+
+function getOrCreateSheet(ss) {
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    var headers = [
+      "Ho va ten", "Bo phan", "Ngay", "Gio check-in", "Ca lam",
+      "Vi do", "Kinh do", "Do chinh xac GPS", "Link Maps",
+      "Dia diem", "Trang thai vi tri", "Link anh", "Thoi diem ghi",
+      "Device ID", "User Agent", "Do phan giai man hinh", "Xac thuc sinh trac",
+      "Gio dien thoai (tham khao)", "Lech gio (giay)", "Canh bao gio", "Kiem tra khuon mat"
+    ];
+    sheet.appendRow(headers);
+    var headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setBackground("#1D9E75");
+    headerRange.setFontColor("#FFFFFF");
+    headerRange.setFontWeight("bold");
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 180);
+    sheet.setColumnWidth(2, 120);
+    sheet.setColumnWidth(9, 220);
+    sheet.setColumnWidth(12, 220);
+    sheet.setColumnWidth(13, 180);
+    sheet.setColumnWidth(14, 220);
+    sheet.setColumnWidth(15, 260);
+    sheet.setColumnWidth(18, 180);
+  } else {
+    ensureDeviceColumns(sheet);
+    ensureTimeAndFaceColumns(sheet);
+  }
+  return sheet;
+}
+
+function ensureDeviceColumns(sheet) {
+  var lastCol = sheet.getLastColumn();
+  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  if (headerRow.indexOf("Device ID") === -1) {
+    var newHeaders = ["Device ID", "User Agent", "Do phan giai man hinh"];
+    sheet.getRange(1, lastCol + 1, 1, newHeaders.length).setValues([newHeaders]);
+    var headerRange = sheet.getRange(1, lastCol + 1, 1, newHeaders.length);
+    headerRange.setBackground("#1D9E75");
+    headerRange.setFontColor("#FFFFFF");
+    headerRange.setFontWeight("bold");
+    sheet.setColumnWidth(lastCol + 1, 220);
+    sheet.setColumnWidth(lastCol + 2, 260);
+    lastCol = sheet.getLastColumn();
+  }
+
+  headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headerRow.indexOf("Xac thuc sinh trac") === -1) {
+    var col = sheet.getLastColumn() + 1;
+    sheet.getRange(1, col).setValue("Xac thuc sinh trac");
+    var r = sheet.getRange(1, col);
+    r.setBackground("#1D9E75");
+    r.setFontColor("#FFFFFF");
+    r.setFontWeight("bold");
+    sheet.setColumnWidth(col, 160);
+  }
+}
+
+function ensureTimeAndFaceColumns(sheet) {
+  var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var toAdd = [];
+  if (headerRow.indexOf("Gio dien thoai (tham khao)") === -1) toAdd.push("Gio dien thoai (tham khao)");
+  if (headerRow.indexOf("Lech gio (giay)") === -1) toAdd.push("Lech gio (giay)");
+  if (headerRow.indexOf("Canh bao gio") === -1) toAdd.push("Canh bao gio");
+  if (headerRow.indexOf("Kiem tra khuon mat") === -1) toAdd.push("Kiem tra khuon mat");
+  if (toAdd.length === 0) return;
+  var startCol = sheet.getLastColumn() + 1;
+  sheet.getRange(1, startCol, 1, toAdd.length).setValues([toAdd]);
+  var r = sheet.getRange(1, startCol, 1, toAdd.length);
+  r.setBackground("#1D9E75");
+  r.setFontColor("#FFFFFF");
+  r.setFontWeight("bold");
+}
+
+function createEmployeeSheet(ss) {
+  var sheet = ss.insertSheet(EMPLOYEE_SHEET_NAME);
+  sheet.getRange(1, 1).setValue("Ho va ten nhan vien");
+  sheet.getRange(1, 2).setValue("Bo phan (van phong / tai xe)");
+  var headerRange = sheet.getRange(1, 1, 1, 2);
+  headerRange.setBackground("#1D9E75");
+  headerRange.setFontColor("#FFFFFF");
+  headerRange.setFontWeight("bold");
+  sheet.setColumnWidth(1, 220);
+  sheet.setColumnWidth(2, 260);
+  sheet.setFrozenRows(1);
+  sheet.getRange(2, 1).setValue("Nguyen Van An");
+  sheet.getRange(2, 2).setValue("van phong");
+  sheet.getRange(3, 1).setValue("Tran Thi Binh");
+  sheet.getRange(3, 2).setValue("van phong");
+  sheet.getRange(4, 1).setValue("Le Van Tai");
+  sheet.getRange(4, 2).setValue("tai xe");
+  return sheet;
+}
+
+function checkLocation(lat, lng) {
+  if (ALLOWED_LOCATIONS.length === 0) { return { valid: true, nearestName: "Khong kiem tra" }; }
+  var nearest = null;
+  var minDist = 999999999;
+  for (var i = 0; i < ALLOWED_LOCATIONS.length; i++) {
+    var loc = ALLOWED_LOCATIONS[i];
+    var dist = haversine(lat, lng, loc.lat, loc.lng);
+    if (dist < minDist) { minDist = dist; nearest = loc; }
+  }
+  return {
+    valid: minDist <= MAX_RADIUS_METERS,
+    nearestName: nearest ? nearest.name + " (" + Math.round(minDist) + "m)" : "-"
   };
+}
 
+function haversine(lat1, lng1, lat2, lng2) {
+  var R = 6371000;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLng = (lng2 - lng1) * Math.PI / 180;
+  var a = Math.pow(Math.sin(dLat / 2), 2)
+        + Math.cos(lat1 * Math.PI / 180)
+        * Math.cos(lat2 * Math.PI / 180)
+        * Math.pow(Math.sin(dLng / 2), 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Cache ID cua folder Drive (thay vi tim kiem lai getFoldersByName moi lan -> nhanh hon)
+function getOrCreateFolderCached(name, parentFolder) {
+  var props = PropertiesService.getScriptProperties();
+  var parentKey = parentFolder ? parentFolder.getId() : 'root';
+  var key = 'folder_' + parentKey + '_' + name;
+  var id = props.getProperty(key);
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (e) { /* folder bi xoa -> tao lai ben duoi */ }
+  }
+  var folder;
+  var iter = parentFolder ? parentFolder.getFoldersByName(name) : DriveApp.getFoldersByName(name);
+  if (iter.hasNext()) { folder = iter.next(); }
+  else { folder = parentFolder ? parentFolder.createFolder(name) : DriveApp.createFolder(name); }
+  props.setProperty(key, folder.getId());
+  return folder;
+}
+
+function saveImageToDrive(base64, fileName, employeeName) {
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST', mode: 'cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(metaPayload)
-    });
-    const result = await resp.json();
+    var folder = getOrCreateFolderCached(DRIVE_FOLDER_NAME, null);
+    var empFolder = getOrCreateFolderCached(employeeName, folder);
+    var blob = Utilities.newBlob(
+      Utilities.base64Decode(base64),
+      "image/jpeg",
+      fileName || ("checkin_" + new Date().getTime() + ".jpg")
+    );
+    var file = empFolder.createFile(blob);
+    // Da bo setSharing() theo yeu cau - anh chi can xem bang tai khoan Drive cua chu so huu,
+    // khong can public link. Viec nay giam dang ke thoi gian xu ly ngam khi luu anh.
+    return file.getUrl();
+  } catch (err) {
+    return "Loi luu anh: " + err.toString();
+  }
+}
 
-    if (result.success) {
-      document.getElementById('success-detail').textContent = emp + ' — ' + submitTime.toLocaleString('vi-VN');
-      document.getElementById('success-overlay').className = 'success-overlay open';
-      uploadPhotoInBackground(result.rowIndex, emp, imgFile);
-    } else if (result.code === 'DEVICE_LOCKED') {
-      toast('🚫 ' + result.message, '#E24B4A');
-    } else {
-      toast('❌ ' + (result.message || 'Gửi thất bại, vui lòng thử lại.'), '#E24B4A');
-    }
-  } catch(err) {
-    toast('❌ Lỗi kết nối. Kiểm tra lại URL Script hoặc mạng.','#E24B4A');
+// ============================================================
+// CHAY HAM NAY 1 LAN DE SUA LOI LECH TIEU DE COT (header bi lech vi tri do qua trinh
+// chinh sua code nhieu lan truoc day). Ham nay CHI ghi de lai dong 1 (tieu de) theo dung
+// thu tu cot that su ma appendRow() dang dung - KHONG dung cham gi den du lieu cac dong ben duoi.
+// Cach chay: mo Apps Script -> chon ham "fixHeaderRow" o thanh cong cu -> bam Run 1 lan.
+// ============================================================
+function fixHeaderRow() {
+  var ss = getOrCreateSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) { Logger.log("Khong tim thay sheet Check-in"); return; }
+
+  var correctHeaders = [
+    "Ho va ten", "Bo phan", "Ngay", "Gio check-in", "Ca lam",
+    "Vi do", "Kinh do", "Do chinh xac GPS", "Link Maps",
+    "Dia diem", "Trang thai vi tri", "Link anh", "Thoi diem ghi",
+    "Device ID", "User Agent", "Do phan giai man hinh", "Xac thuc sinh trac",
+    "Gio dien thoai (tham khao)", "Lech gio (giay)", "Canh bao gio", "Kiem tra khuon mat"
+  ];
+
+  var range = sheet.getRange(1, 1, 1, correctHeaders.length);
+  range.setValues([correctHeaders]);
+  range.setBackground("#1D9E75");
+  range.setFontColor("#FFFFFF");
+  range.setFontWeight("bold");
+
+  Logger.log("Da ep lai " + correctHeaders.length + " tieu de cot dung vi tri. Du lieu cac dong khong bi anh huong.");
+}
+
+// ============================================================
+// HAM CHAN DOAN (chi doc, khong sua gi) - chay ham nay va xem ket qua o "Executions"
+// hoac View > Logs de biet CHINH XAC sheet dang co bao nhieu cot va ten tung cot,
+// giup xac dinh co cot du/trung do loi lech header truoc day hay khong.
+// ============================================================
+function debugColumns() {
+  var ss = getOrCreateSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) { Logger.log("Khong tim thay sheet Check-in"); return; }
+
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  Logger.log("TONG SO COT THAT SU: " + lastCol + " (chuan la 21)");
+  for (var i = 0; i < headers.length; i++) {
+    Logger.log("Cot " + (i + 1) + ": \"" + headers[i] + "\"");
   }
 
-  btn.disabled = false;
-  btn.innerHTML = '📤 Gửi check-in';
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    Logger.log("---- Du lieu dong cuoi cung (dong " + lastRow + ") ----");
+    var lastRowData = sheet.getRange(lastRow, 1, 1, lastCol).getValues()[0];
+    for (var j = 0; j < lastRowData.length; j++) {
+      Logger.log("Cot " + (j + 1) + " [" + headers[j] + "]: " + lastRowData[j]);
+    }
+  }
 }
 
-function resetForm() {
-  stopCamera();
-  document.getElementById('success-overlay').className = 'success-overlay';
-  clearEmpSelection();
-  document.getElementById('bio-card').style.display = 'none';
-  resetPhotoOnly();
-  document.getElementById('loc-box').className = 'loc-box';
-  document.getElementById('loc-text').textContent = 'Nhấn để lấy vị trí GPS';
-  locData = null;
+function testSetup() {
+  var ss = getOrCreateSpreadsheet();
+  var sheet = getOrCreateSheet(ss);
+  var empSheet = ss.getSheetByName(EMPLOYEE_SHEET_NAME);
+  if (!empSheet) { createEmployeeSheet(ss); }
+  sheet.appendRow([
+    "Test Tai Xe", "tai xe", "07/06/2026", "08:30:00", "Sang (6:00-14:00)",
+    10.77695, 106.70090, "'±5m",
+    "https://maps.google.com/?q=10.77695,106.70090",
+    "Tai xe luu dong", "Ghi nhan (khong kiem tra)",
+    "https://drive.google.com/test",
+    new Date().toLocaleString("vi-VN"),
+    "dev-test-1234", "Test User Agent", "1920x1080", "Co",
+    "07/06/2026 08:30:00", "-", "-", "Co phat hien mat"
+  ]);
+  Logger.log("Test thanh cong! Link: " + ss.getUrl());
 }
-
-function resetPhotoOnly() {
-  const zone = document.getElementById('upload-zone');
-  zone.className = 'upload-zone';
-  zone.style.display = 'block';
-  zone.innerHTML =
-    '<div class="upload-ico">📸</div><div class="upload-text">Nhấn để mở camera</div><div class="upload-hint">Chỉ chụp realtime</div>';
-  document.getElementById('cam-video').style.display = 'none';
-  document.getElementById('cam-btn-row').style.display = 'none';
-  document.getElementById('cam-retake-row').style.display = 'none';
-  imgFile = null;
-  captureTimestamp = null;
-}
-</script>
-</body>
-</html>
