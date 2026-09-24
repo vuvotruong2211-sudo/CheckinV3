@@ -123,57 +123,78 @@
     </div>
   </div>
 
-  <!-- SINH TRẮC HỌC -->
-  <div class="card" id="bio-card" style="display:none">
-    <div class="card-title">🔒 Xác thực Face ID / Vân tay</div>
-    <div id="bio-status" style="font-size:13px;color:#666;margin-bottom:10px;line-height:1.5;"></div>
-    <button class="submit-btn" id="bio-register-btn" style="display:none;background:#0F6E56" onclick="handleRegisterClick()">👆 Đăng ký ngay trên máy này</button>
-  </div>
-
-  <!-- VỊ TRÍ & CA -->
-  <div class="card">
-    <div class="card-title">📍 Vị trí &amp; ca làm</div>
-    <div class="loc-box" id="loc-box" onclick="getLocation()">
-      <span>🎯</span>
-      <span id="loc-text">Nhấn để lấy vị trí GPS</span>
-      <span class="badge">R ≤ 50m</span>
-    </div>
-    <div class="info-box">
-      <div class="info-label">Ca làm việc</div>
-      <select class="shift-select" id="shift-select">
-        <option value="Sáng (6:00–15:00)">Sáng (6:00–15:00)</option>
-        <option value="Chiều (14:00–23:00)">Chiều (14:00–23:00)</option>
-        <option value="Tối (22:00–6:00)">Tối (22:00–6:00)</option>
-      </select>
+  <!-- PASSCODE - chi hien voi bo phan KHONG phai "tai xe", chan toan bo phan con lai
+       cua form cho toi khi nhap dung 6 so. Muc dich: xac minh dung nguoi truoc khi cho
+       xem cac buoc tiep theo (GPS/anh/gui), tranh nham lan chon nham ten dong nghiep. -->
+  <div class="card" id="passcode-card" style="display:none">
+    <div class="card-title">🔑 Nhập mã xác minh (6 số)</div>
+    <div id="passcode-status" style="font-size:13px;color:#666;margin-bottom:10px;">Nhập đúng mã passcode 6 số của bạn để tiếp tục.</div>
+    <div style="display:flex;gap:8px;justify-content:center;">
+      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="0" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="1" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="2" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="3" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="4" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="5" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
     </div>
   </div>
 
-  <!-- ẢNH -->
-  <div class="card">
-    <div class="card-title">📷 Ảnh xác nhận</div>
-    <div class="upload-zone" id="upload-zone" onclick="startCamera()">
-      <div class="upload-ico">📸</div>
-      <div class="upload-text">Nhấn để mở camera</div>
-      <div class="upload-hint">Chỉ chụp realtime</div>
-    </div>
-    <video id="cam-video" style="display:none" autoplay playsinline muted></video>
-    <canvas id="cam-canvas" style="display:none"></canvas>
-    <div class="cam-btn-row" id="cam-btn-row" style="display:none">
-      <button class="shot" id="cam-shot-btn" onclick="capturePhoto()">📸 Chụp ảnh</button>
-      <button class="retake" id="cam-switch-btn" onclick="switchCamera()">🤳 Đổi camera</button>
-    </div>
-    <div class="cam-btn-row" id="cam-retake-row" style="display:none">
-      <button class="retake" onclick="startCamera()">🔄 Chụp lại</button>
-    </div>
-  </div>
+  <!-- Toan bo phan con lai cua form: an cho toi khi passcode xac minh xong (hoac ngay
+       lap tuc voi bo phan "tai xe", khong can passcode) -->
+  <div id="post-passcode-section" style="display:none">
 
-  <div class="note">
-    ℹ️ <span>Thông tin đang được ghi nhận. Vui lòng không đóng trình duyệt trong 30 giây tới.</span>
-  </div>
+    <!-- SINH TRẮC HỌC -->
+    <div class="card" id="bio-card" style="display:none">
+      <div class="card-title">🔒 Xác thực Face ID / Vân tay</div>
+      <div id="bio-status" style="font-size:13px;color:#666;margin-bottom:10px;line-height:1.5;"></div>
+      <button class="submit-btn" id="bio-register-btn" style="display:none;background:#0F6E56" onclick="handleRegisterClick()">👆 Đăng ký ngay trên máy này</button>
+    </div>
 
-  <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
-    📤 Gửi check-in
-  </button>
+    <!-- VỊ TRÍ & CA -->
+    <div class="card">
+      <div class="card-title">📍 Vị trí &amp; ca làm</div>
+      <div class="loc-box" id="loc-box" onclick="getLocation()">
+        <span>🎯</span>
+        <span id="loc-text">Nhấn để lấy vị trí GPS</span>
+        <span class="badge">R ≤ 50m</span>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Ca làm việc</div>
+        <select class="shift-select" id="shift-select">
+          <option value="Sáng (6:00–15:00)">Sáng (6:00–15:00)</option>
+          <option value="Chiều (14:00–23:00)">Chiều (14:00–23:00)</option>
+          <option value="Tối (22:00–6:00)">Tối (22:00–6:00)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ẢNH -->
+    <div class="card">
+      <div class="card-title">📷 Ảnh xác nhận</div>
+      <div class="upload-zone" id="upload-zone" onclick="startCamera()">
+        <div class="upload-ico">📸</div>
+        <div class="upload-text">Nhấn để mở camera</div>
+        <div class="upload-hint">Chỉ chụp realtime</div>
+      </div>
+      <video id="cam-video" style="display:none" autoplay playsinline muted></video>
+      <canvas id="cam-canvas" style="display:none"></canvas>
+      <div class="cam-btn-row" id="cam-btn-row" style="display:none">
+        <button class="shot" id="cam-shot-btn" onclick="capturePhoto()">📸 Chụp ảnh</button>
+        <button class="retake" id="cam-switch-btn" onclick="switchCamera()">🤳 Đổi camera</button>
+      </div>
+      <div class="cam-btn-row" id="cam-retake-row" style="display:none">
+        <button class="retake" onclick="startCamera()">🔄 Chụp lại</button>
+      </div>
+    </div>
+
+    <div class="note">
+      ℹ️ <span>Thông tin đang được ghi nhận. Vui lòng không đóng trình duyệt trong 30 giây tới.</span>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
+      📤 Gửi check-in
+    </button>
+  </div>
 </div>
 
 <!-- TOAST -->
@@ -353,7 +374,7 @@ function selectEmp(name) {
   document.getElementById('emp-selected-text').textContent = ico + ' ' + name;
   document.getElementById('emp-selected-tag').classList.add('show');
   document.getElementById('emp-input').style.display = 'none';
-  updateBioCard();
+  startPasscodeFlow(dept);
 }
 
 function clearEmpSelection() {
@@ -363,7 +384,90 @@ function clearEmpSelection() {
   document.getElementById('emp-input').value = '';
   document.getElementById('emp-input').focus();
   document.getElementById('bio-card').style.display = 'none';
+  document.getElementById('passcode-card').style.display = 'none';
+  document.getElementById('post-passcode-section').style.display = 'none';
+  passcodeVerified = false;
 }
+
+// ============================================================
+// PASSCODE 6 SO - bat buoc voi bo phan KHONG phai "tai xe" (theo yeu cau: tai xe di
+// chuyen lien tuc nhieu diem, mien nhap de khong mat thoi gian). Sau khi chon ten:
+//  - "tai xe" -> bo qua hoan toan, mo thang phan con lai cua form.
+//  - con lai -> hien 6 o nhap, xac minh voi server (khong bao gio gui passcode that
+//    qua doGet cong khai - chi so sanh rieng qua doPost action=verifyPasscode).
+// ============================================================
+var passcodeVerified = false;
+
+function startPasscodeFlow(dept) {
+  passcodeVerified = false;
+  document.getElementById('post-passcode-section').style.display = 'none';
+
+  if (dept === 'tai xe') {
+    // Mien passcode cho tai xe -> mo thang phan con lai
+    document.getElementById('passcode-card').style.display = 'none';
+    passcodeVerified = true;
+    document.getElementById('post-passcode-section').style.display = 'block';
+    updateBioCard();
+    return;
+  }
+
+  document.getElementById('passcode-card').style.display = 'block';
+  const digits = document.querySelectorAll('.passcode-digit');
+  digits.forEach(d => { d.value = ''; d.style.borderColor = '#ddd'; });
+  digits[0].focus();
+  document.getElementById('passcode-status').textContent = 'Nhập đúng mã passcode 6 số của bạn để tiếp tục.';
+  document.getElementById('passcode-status').style.color = '#666';
+}
+
+function setupPasscodeInputs() {
+  const digits = document.querySelectorAll('.passcode-digit');
+  digits.forEach((el, i) => {
+    el.addEventListener('input', () => {
+      el.value = el.value.replace(/[^0-9]/g, '').slice(0, 1);
+      if (el.value && i < digits.length - 1) { digits[i + 1].focus(); }
+      const code = Array.from(digits).map(d => d.value).join('');
+      if (code.length === 6) { submitPasscodeForVerify(code); }
+    });
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Backspace' && !el.value && i > 0) { digits[i - 1].focus(); }
+    });
+  });
+}
+
+async function submitPasscodeForVerify(code) {
+  const digits = document.querySelectorAll('.passcode-digit');
+  const status = document.getElementById('passcode-status');
+  status.textContent = '🔒 Đang kiểm tra...';
+  status.style.color = '#666';
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST', mode: 'cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'verifyPasscode', name: selectedEmpName, passcode: code })
+    });
+    const result = await resp.json();
+    if (result.success && result.verified) {
+      passcodeVerified = true;
+      status.textContent = '✅ Xác minh thành công';
+      status.style.color = '#0F6E56';
+      digits.forEach(d => d.style.borderColor = '#1D9E75');
+      document.getElementById('post-passcode-section').style.display = 'block';
+      updateBioCard();
+    } else {
+      passcodeVerified = false;
+      status.textContent = '❌ Sai passcode, vui lòng nhập lại';
+      status.style.color = '#A32D2D';
+      digits.forEach(d => { d.value = ''; d.style.borderColor = '#E24B4A'; });
+      digits[0].focus();
+    }
+  } catch (err) {
+    status.textContent = '⚠ Lỗi mạng, không kiểm tra được passcode. Thử lại?';
+    status.style.color = '#BA7517';
+    digits.forEach(d => { d.value = ''; });
+    digits[0].focus();
+  }
+}
+setupPasscodeInputs();
 
 document.addEventListener('click', function(e) {
   const wrap = document.querySelector('.emp-search-wrap');
@@ -613,6 +717,7 @@ async function handleSubmit() {
   const dept = empDeptMap[emp] || '';
   const shift = document.getElementById('shift-select').value;
   if (!emp) return toast('⚠ Vui lòng chọn nhân viên','#BA7517');
+  if (!passcodeVerified) return toast('⚠ Vui lòng nhập đúng passcode trước','#BA7517'); // phong ve, thuong khong xay ra vi nut gui chi hien sau khi xac minh xong
   if (!locData) return toast('⚠ Vui lòng lấy vị trí GPS trước','#BA7517');
   if (!imgFile) return toast('⚠ Vui lòng chọn ảnh check-in','#BA7517');
 
