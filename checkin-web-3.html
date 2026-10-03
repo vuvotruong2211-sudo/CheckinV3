@@ -434,17 +434,23 @@ function setupPasscodeInputs() {
   });
 }
 
+const PASSCODE_VERIFY_TIMEOUT_MS = 10000; // qua 10s khong phan hoi -> huy, bao loi ro rang thay vi treo vo han
+
 async function submitPasscodeForVerify(code) {
   const digits = document.querySelectorAll('.passcode-digit');
   const status = document.getElementById('passcode-status');
   status.textContent = '🔒 Đang kiểm tra...';
   status.style.color = '#666';
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PASSCODE_VERIFY_TIMEOUT_MS);
   try {
     const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST', mode: 'cors',
+      method: 'POST', mode: 'cors', signal: controller.signal,
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'verifyPasscode', name: selectedEmpName, passcode: code })
     });
+    clearTimeout(timer);
     const result = await resp.json();
     if (result.success && result.verified) {
       passcodeVerified = true;
@@ -461,7 +467,10 @@ async function submitPasscodeForVerify(code) {
       digits[0].focus();
     }
   } catch (err) {
-    status.textContent = '⚠ Lỗi mạng, không kiểm tra được passcode. Thử lại?';
+    clearTimeout(timer);
+    status.textContent = err.name === 'AbortError'
+      ? '⚠ Server phản hồi quá lâu, vui lòng thử lại'
+      : '⚠ Lỗi mạng, không kiểm tra được passcode. Thử lại?';
     status.style.color = '#BA7517';
     digits.forEach(d => { d.value = ''; });
     digits[0].focus();
