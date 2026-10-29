@@ -130,12 +130,12 @@
     <div class="card-title">🔑 Nhập mã xác minh (6 số)</div>
     <div id="passcode-status" style="font-size:13px;color:#666;margin-bottom:10px;">Nhập đúng mã passcode 6 số của bạn để tiếp tục.</div>
     <div style="display:flex;gap:8px;justify-content:center;">
-      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="0" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
-      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="1" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
-      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="2" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
-      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="3" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
-      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="4" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
-      <input type="tel" inputmode="numeric" maxlength="1" class="passcode-digit" data-idx="5" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" autocomplete="off" class="passcode-digit" data-idx="0" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" autocomplete="off" class="passcode-digit" data-idx="1" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" autocomplete="off" class="passcode-digit" data-idx="2" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" autocomplete="off" class="passcode-digit" data-idx="3" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" autocomplete="off" class="passcode-digit" data-idx="4" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
+      <input type="tel" inputmode="numeric" autocomplete="off" class="passcode-digit" data-idx="5" style="width:42px;height:52px;text-align:center;font-size:22px;font-weight:700;border:1.5px solid #ddd;border-radius:8px;background:#f9f9f7;">
     </div>
   </div>
 
@@ -413,20 +413,53 @@ function startPasscodeFlow(dept) {
 
   document.getElementById('passcode-card').style.display = 'block';
   const digits = document.querySelectorAll('.passcode-digit');
-  digits.forEach(d => { d.value = ''; d.style.borderColor = '#ddd'; });
+  clearPasscodeDigits();
+  digits.forEach(d => { d.style.borderColor = '#ddd'; });
   digits[0].focus();
   document.getElementById('passcode-status').textContent = 'Nhập đúng mã passcode 6 số của bạn để tiếp tục.';
   document.getElementById('passcode-status').style.color = '#666';
 }
 
+// ==== CHE PASSCODE BANG DAU * ====
+// So that duoc giu trong mang passcodeValues (bo nho JS), o nhap chi hien "*".
+// Moi so vua go se hien thoang 0.4s de nhan vien biet minh go dung chua, roi doi thanh "*".
+var passcodeValues = ['', '', '', '', '', ''];
+var passcodeMaskTimers = [];
+const PASSCODE_REVEAL_MS = 400;
+
+function clearPasscodeDigits() {
+  const digits = document.querySelectorAll('.passcode-digit');
+  passcodeValues = ['', '', '', '', '', ''];
+  passcodeMaskTimers.forEach(t => clearTimeout(t));
+  passcodeMaskTimers = [];
+  digits.forEach(d => { d.value = ''; });
+}
+
 function setupPasscodeInputs() {
   const digits = document.querySelectorAll('.passcode-digit');
   digits.forEach((el, i) => {
+    el.addEventListener('focus', () => { el.select(); });
     el.addEventListener('input', () => {
-      el.value = el.value.replace(/[^0-9]/g, '').slice(0, 1);
-      if (el.value && i < digits.length - 1) { digits[i + 1].focus(); }
-      const code = Array.from(digits).map(d => d.value).join('');
-      if (code.length === 6) { submitPasscodeForVerify(code); }
+      // Lay so cuoi cung vua go (bo qua dau * cu neu co)
+      const newDigits = el.value.replace(/[^0-9]/g, '');
+      clearTimeout(passcodeMaskTimers[i]);
+      if (newDigits) {
+        const d = newDigits.slice(-1);
+        passcodeValues[i] = d;
+        el.value = d; // hien thoang so vua go
+        passcodeMaskTimers[i] = setTimeout(() => { if (passcodeValues[i]) el.value = '*'; }, PASSCODE_REVEAL_MS);
+        if (i < digits.length - 1) { digits[i + 1].focus(); }
+      } else {
+        passcodeValues[i] = '';
+        el.value = '';
+      }
+      const code = passcodeValues.join('');
+      if (code.length === 6) {
+        // Du 6 so -> che het ngay lap tuc truoc khi gui kiem tra
+        digits.forEach((dEl, k) => { clearTimeout(passcodeMaskTimers[k]); if (passcodeValues[k]) dEl.value = '*'; });
+        el.blur();
+        submitPasscodeForVerify(code);
+      }
     });
     el.addEventListener('keydown', (ev) => {
       if (ev.key === 'Backspace' && !el.value && i > 0) { digits[i - 1].focus(); }
@@ -463,7 +496,8 @@ async function submitPasscodeForVerify(code) {
       passcodeVerified = false;
       status.textContent = '❌ Sai passcode, vui lòng nhập lại';
       status.style.color = '#A32D2D';
-      digits.forEach(d => { d.value = ''; d.style.borderColor = '#E24B4A'; });
+      clearPasscodeDigits();
+      digits.forEach(d => { d.style.borderColor = '#E24B4A'; });
       digits[0].focus();
     }
   } catch (err) {
@@ -472,7 +506,7 @@ async function submitPasscodeForVerify(code) {
       ? '⚠ Server phản hồi quá lâu, vui lòng thử lại'
       : '⚠ Lỗi mạng, không kiểm tra được passcode. Thử lại?';
     status.style.color = '#BA7517';
-    digits.forEach(d => { d.value = ''; });
+    clearPasscodeDigits();
     digits[0].focus();
   }
 }
