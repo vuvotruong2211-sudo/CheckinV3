@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TUẤN TÚ EXPRESS - CHẤM CÔNG </title>
+<!-- Mo san ket noi toi Google ngay khi tai trang -> lenh dau tien (tai danh sach) nhanh hon -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+<link rel="dns-prefetch" href="https://script.googleusercontent.com">
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:#F1EFE8;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:1.5rem 1rem;}
@@ -66,7 +70,7 @@
   .submit-btn:hover:not(:disabled){background:#0F6E56;}
   .note{background:#f9f9f7;border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#888;display:flex;align-items:flex-start;gap:8px;}
   .toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;}
-  .toast{background:#1D9E75;color:white;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;}
+  .toast{background:#1D9E75;color:white;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:normal;width:max-content;max-width:90vw;text-align:center;}
   .toast.show{opacity:1;}
   .success-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:300;}
   .success-overlay.open{display:flex;}
@@ -114,7 +118,7 @@
     <div class="card-title">👤 Nhân viên</div>
     <label>Họ và tên</label>
     <div class="emp-search-wrap">
-      <input type="text" id="emp-input" placeholder="⏳ Đang tải danh sách..." autocomplete="off" oninput="onEmpInput()" onfocus="onEmpInput()">
+      <input type="text" id="emp-input" placeholder="⏳ Đang tải danh sách..." autocomplete="off" oninput="onEmpInput()" onfocus="onEmpInput()" onclick="onEmpInput()">
       <div class="emp-dropdown" id="emp-dropdown"></div>
     </div>
     <div class="emp-selected-tag" id="emp-selected-tag">
@@ -221,8 +225,10 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyWxe6-W51IUHxS
 const DAYS = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 
 // ==== TỐI ƯU ẢNH: resize + nén lặp cho tới khi đạt mục tiêu dung lượng ====
-const PHOTO_MAX_DIM = 800;
-const PHOTO_TARGET_KB = 110;
+// 640px van du ro mat de doi chieu, file nho hon ~35% -> nen nhanh hon (thuong 1 lan la dat)
+// va gui len Drive nhanh hon, dac biet khi 4G yeu o ben xe/doc duong.
+const PHOTO_MAX_DIM = 640;
+const PHOTO_TARGET_KB = 80;
 
 // ==== SPLASH: bấm nút sẽ reload thật sự trang, tránh treo o "dang tai..." ====
 // Khong dung sessionStorage (chi mat khi dong han tab) ma dung localStorage + moc thoi gian:
@@ -374,7 +380,16 @@ function selectEmp(name) {
   document.getElementById('emp-selected-text').textContent = ico + ' ' + name;
   document.getElementById('emp-selected-tag').classList.add('show');
   document.getElementById('emp-input').style.display = 'none';
+  // Lay GPS NGAY khi chon ten, chay song song trong luc nhan vien nhap passcode ->
+  // toi buoc vi tri thi thuong da co san, khong phai bam + cho nua.
+  if (!locData) getLocation();
   startPasscodeFlow(dept);
+}
+
+// Tu mo camera ngay khi toi buoc chup anh (bot 1 lan bam). Neu may chan/chua cap quyen
+// thi im lang, nhan vien van bam o "Nhấn để mở camera" nhu cu.
+function autoStartCamera() {
+  if (!camStream && !imgFile) startCamera(true);
 }
 
 function clearEmpSelection() {
@@ -387,6 +402,9 @@ function clearEmpSelection() {
   document.getElementById('passcode-card').style.display = 'none';
   document.getElementById('post-passcode-section').style.display = 'none';
   passcodeVerified = false;
+  // Doi nguoi -> tat camera + bo anh cua nguoi truoc
+  stopCamera();
+  resetPhotoOnly();
 }
 
 // ============================================================
@@ -408,6 +426,7 @@ function startPasscodeFlow(dept) {
     passcodeVerified = true;
     document.getElementById('post-passcode-section').style.display = 'block';
     updateBioCard();
+    autoStartCamera();
     return;
   }
 
@@ -492,6 +511,7 @@ async function submitPasscodeForVerify(code) {
       digits.forEach(d => d.style.borderColor = '#1D9E75');
       document.getElementById('post-passcode-section').style.display = 'block';
       updateBioCard();
+      autoStartCamera();
     } else {
       passcodeVerified = false;
       status.textContent = '❌ Sai passcode, vui lòng nhập lại';
@@ -518,7 +538,7 @@ document.addEventListener('click', function(e) {
     document.getElementById('emp-dropdown').className = 'emp-dropdown';
   }
 });
-let locData = null, imgFile = null, submitTime = null, camStream = null, captureTimestamp = null;
+let locData = null, imgFile = null, imgBase64 = null, submitTime = null, camStream = null, captureTimestamp = null;
 const MAX_CAPTURE_TO_SUBMIT_MS = 90 * 1000;
 
 function getDeviceId() {
@@ -642,29 +662,72 @@ function tick() {
 tick(); setInterval(tick, 1000);
 loadEmployees();
 
-function getLocation() {
+// ==== GPS: xu ly ro tung truong hop may chan/khoa dinh vi ====
+// - Tu lay khi chon ten: goi ngay trong cu bam chon ten (co thao tac nguoi dung) nen trinh
+//   duyet van cho hien hop xin quyen binh thuong. Neu that bai thi KHONG chan gi ca, chi
+//   hien huong dan ro rang, nhan vien bam vao o vi tri de thu lai nhu cu.
+// - Phan biet: bi chan quyen / chua bat GPS / song yeu / mo trong Zalo-Facebook / khong phai https.
+let locPending = false;
+
+function isInAppBrowser() {
+  return /Zalo|FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|TikTok/i.test(navigator.userAgent);
+}
+function isIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
+
+function locDeniedHelp() {
+  if (isInAppBrowser()) return '🚫 Zalo/Facebook đang chặn định vị. Bấm ••• → "Mở bằng trình duyệt" (Chrome/Safari) rồi check-in lại.';
+  if (isIOS()) return '🚫 Định vị đang bị chặn. Vào Cài đặt → Quyền riêng tư → Dịch vụ định vị → Safari/Chrome → chọn "Khi dùng ứng dụng", rồi bấm vào đây thử lại.';
+  return '🚫 Định vị đang bị chặn. Bấm biểu tượng ổ khoá 🔒 cạnh địa chỉ web → Quyền → Vị trí → Cho phép, rồi bấm vào đây thử lại.';
+}
+
+function showLocError(msg) {
   const box = document.getElementById('loc-box');
   const txt = document.getElementById('loc-text');
-  txt.textContent = 'Đang lấy vị trí...';
+  txt.textContent = msg;
+  box.className = 'loc-box err';
+}
+
+function getLocation(isRetryLowAccuracy) {
+  if (locPending) return; // dang lay roi -> bo qua bam trung
+  const box = document.getElementById('loc-box');
+  const txt = document.getElementById('loc-text');
+  if (!navigator.geolocation) { showLocError('Trình duyệt không hỗ trợ GPS. Hãy mở bằng Chrome hoặc Safari.'); return; }
+  if (window.isSecureContext === false) { showLocError('Trang phải mở bằng https:// mới lấy được GPS.'); return; }
+
+  txt.textContent = isRetryLowAccuracy === true ? 'Sóng GPS yếu, đang thử lại...' : 'Đang lấy vị trí...';
   box.className = 'loc-box';
-  if (!navigator.geolocation) {
-    txt.textContent = 'Trình duyệt không hỗ trợ GPS';
-    box.className = 'loc-box err'; return;
-  }
+  locPending = true;
+  const highAcc = isRetryLowAccuracy !== true;
+
   navigator.geolocation.getCurrentPosition(
     pos => {
+      locPending = false;
       locData = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
       txt.textContent = locData.lat.toFixed(5)+', '+locData.lng.toFixed(5)+' (±'+locData.acc+'m)';
       box.className = 'loc-box active';
     },
-    () => { txt.textContent='Không lấy được vị trí. Thử lại?'; box.className='loc-box err'; },
-    { enableHighAccuracy:true, timeout:10000 }
+    err => {
+      locPending = false;
+      if (err.code === 1) {            // PERMISSION_DENIED: nguoi dung/he thong chan quyen
+        showLocError(locDeniedHelp());
+      } else if (err.code === 2) {     // POSITION_UNAVAILABLE: chua bat GPS / Dich vu dinh vi
+        showLocError('📍 Máy chưa bật Vị trí (GPS). Kéo thanh thông báo bật "Vị trí" lên, rồi bấm vào đây thử lại.');
+      } else if (highAcc) {            // TIMEOUT voi GPS chinh xac cao -> tu thu lai 1 lan bang wifi/mang
+        getLocation(true);
+      } else {
+        showLocError('⏱ Sóng GPS yếu. Ra gần cửa/cửa sổ rồi bấm vào đây thử lại.');
+      }
+    },
+    // maximumAge 30s: neu dien thoai vua co vi tri trong 30s gan nhat thi dung luon (gan nhu tuc thi)
+    { enableHighAccuracy: highAcc, timeout: highAcc ? 10000 : 8000, maximumAge: 30000 }
   );
 }
 
 let currentFacingMode = 'user';
 
-async function startCamera() {
+async function startCamera(silent) {
+  if (silent !== true) silent = false; // khi goi tu onclick, tham so la event -> coi nhu khong silent
+  stopCamera();
   const zone = document.getElementById('upload-zone');
   const video = document.getElementById('cam-video');
   try {
@@ -677,7 +740,9 @@ async function startCamera() {
     document.getElementById('cam-retake-row').style.display = 'none';
     imgFile = null;
   } catch (err) {
-    toast('⚠ Không mở được camera. Kiểm tra quyền truy cập trình duyệt.', '#E24B4A');
+    if (!silent) toast(isInAppBrowser()
+      ? '⚠ Zalo/Facebook chặn camera. Bấm ••• → Mở bằng trình duyệt'
+      : '⚠ Không mở được camera. Kiểm tra quyền Camera của trình duyệt.', '#E24B4A');
   }
 }
 
@@ -715,6 +780,13 @@ function capturePhoto() {
   compressToTarget(canvas, 0.7, 0, function(blob, usedQuality) {
     imgFile = new File([blob], 'checkin_' + Date.now() + '.jpg', { type: 'image/jpeg' });
     captureTimestamp = Date.now();
+    // Ma hoa base64 SAN ngay luc chup (trong luc nhan vien xem lai anh) -> luc bam gui
+    // khong phai cho buoc nay nua.
+    imgBase64 = null;
+    const thisFile = imgFile;
+    const rd = new FileReader();
+    rd.onload = e => { if (imgFile === thisFile) imgBase64 = e.target.result.split(',')[1]; };
+    rd.readAsDataURL(blob);
     const zone = document.getElementById('upload-zone');
     zone.className = 'upload-zone has-img';
     zone.style.display = 'block';
@@ -735,16 +807,14 @@ function toast(msg, color) {
 }
 
 // ==== Gửi ảnh ở chế độ NỀN, không bắt nhân viên phải chờ ====
-function uploadPhotoInBackground(rowIndex, empName, fileToUpload) {
+function uploadPhotoInBackground(rowIndex, checkinId, empName, fileToUpload, preEncoded) {
   document.getElementById('photo-status').textContent = '📸 Đang lưu ảnh...';
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    const base64 = e.target.result.split(',')[1];
+  const send = async function(base64) {
     try {
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: 'POST', mode: 'cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action:'uploadPhoto', rowIndex: rowIndex, name: empName, imageBase64: base64, imageName: fileToUpload.name })
+        body: JSON.stringify({ action:'uploadPhoto', rowIndex: rowIndex, checkinId: checkinId, name: empName, imageBase64: base64, imageName: fileToUpload.name })
       });
       const result = await resp.json();
       document.getElementById('photo-status').textContent = result.success ? '✅ Đã lưu ảnh' : '⚠ Lưu ảnh thất bại, giờ/GPS vẫn đã ghi nhận';
@@ -752,6 +822,9 @@ function uploadPhotoInBackground(rowIndex, empName, fileToUpload) {
       document.getElementById('photo-status').textContent = '⚠ Lưu ảnh thất bại (mạng yếu), giờ/GPS vẫn đã ghi nhận';
     }
   };
+  if (preEncoded) { send(preEncoded); return; }
+  const reader = new FileReader();
+  reader.onload = e => send(e.target.result.split(',')[1]);
   reader.readAsDataURL(fileToUpload);
 }
 
@@ -779,7 +852,11 @@ async function handleSubmit() {
   btn.innerHTML = '<span class="spinning">⏳</span> Đang gửi...';
 
   // BƯỚC 1: gửi dữ liệu chấm công (KHÔNG kèm ảnh) -> nhanh, chỉ vài giây
+  const devInfo = getDeviceInfo();
+  const checkinId = devInfo.deviceId + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+  const fileForUpload = imgFile, base64ForUpload = imgBase64;
   const metaPayload = {
+    checkinId: checkinId,
     action: 'checkin',
     name: emp, dept: dept, shift: shift,
     datetime: submitTime.toLocaleString('vi-VN'),
@@ -788,9 +865,9 @@ async function handleSubmit() {
     clientEpochMs: Date.now(), // gan nhu 0 chi phi - dung de doi chieu lech gio may, chong gian lan
     lat: locData.lat, lng: locData.lng, accuracy: locData.acc,
     mapsLink: 'https://maps.google.com/?q='+locData.lat+','+locData.lng,
-    deviceId: getDeviceInfo().deviceId,
-    userAgent: getDeviceInfo().userAgent,
-    screenRes: getDeviceInfo().screen,
+    deviceId: devInfo.deviceId,
+    userAgent: devInfo.userAgent,
+    screenRes: devInfo.screen,
     bioVerified: (window.PublicKeyCredential && getRegisteredCredId(emp)) ? 'Co' : 'Khong'
   };
 
@@ -806,7 +883,7 @@ async function handleSubmit() {
       document.getElementById('success-detail').textContent = emp + ' — ' + submitTime.toLocaleString('vi-VN');
       document.getElementById('success-overlay').className = 'success-overlay open';
       // BƯỚC 2: gửi ảnh ở chế độ nền, không bắt nhân viên chờ thêm
-      uploadPhotoInBackground(result.rowIndex, emp, imgFile);
+      uploadPhotoInBackground(result.rowIndex, checkinId, emp, fileForUpload, base64ForUpload);
     } else if (result.code === 'DEVICE_LOCKED') {
       toast('🚫 ' + result.message, '#E24B4A');
     } else {
@@ -841,6 +918,7 @@ function resetPhotoOnly() {
   document.getElementById('cam-btn-row').style.display = 'none';
   document.getElementById('cam-retake-row').style.display = 'none';
   imgFile = null;
+  imgBase64 = null;
   captureTimestamp = null;
 }
 </script>
